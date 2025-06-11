@@ -5,7 +5,6 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import org.example.project1.service.jwt.JwtService;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;

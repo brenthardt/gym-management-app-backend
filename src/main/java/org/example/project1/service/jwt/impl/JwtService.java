@@ -1,4 +1,4 @@
-package org.example.project1.service.jwt;
+package org.example.project1.service.jwt.impl;
 
 import io.jsonwebtoken.Claims;
 import java.security.Key;

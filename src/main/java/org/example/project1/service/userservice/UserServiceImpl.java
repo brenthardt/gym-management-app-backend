@@ -4,7 +4,7 @@ import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.example.project1.dto.*;
 import org.example.project1.entity.User;
-import org.example.project1.service.jwt.JwtService;
+import org.example.project1.service.jwt.impl.JwtService;
 import org.example.project1.repository.RoleRepository;
 import org.example.project1.repository.UserRepository;
 import org.example.project1.entity.Role;

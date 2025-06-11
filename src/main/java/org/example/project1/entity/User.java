@@ -37,8 +37,13 @@ public class User implements UserDetails {
 
     @ManyToOne
     @JoinColumn(name = "tariff_id")
-    private Tariff plan;
-    private Integer subDays;
+    private Tariff tariff;
+
+    @ManyToOne
+    @JoinColumn(name = "subscription_id")
+    private Subscription subscription;
+
+    private Integer duration;
     private Date purchaseDate;
 
     @Override

@@ -17,19 +17,15 @@ public class Subscription {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-
     private LocalDate startDate;
     private LocalDate endDate;
-    private Double price;
-    private Boolean status;
-    private boolean limited;
-    private int dayCount;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "subscription_type_id")
-    private SubscriptionType subscriptionType;
-
+    private Integer price;
+    private boolean status;
+    private Integer duration;
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
+    @ManyToOne
+    @JoinColumn(name = "tariff_id")
+    private Tariff tariff;
 }

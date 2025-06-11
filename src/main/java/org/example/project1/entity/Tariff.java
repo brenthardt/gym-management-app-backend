@@ -19,18 +19,14 @@ public class Tariff {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-
     private String name;
     private Double price;
     private Date endDate;
     private Integer duration;
     @Enumerated(EnumType.STRING)
-    private Type planType;
 
     @ManyToOne
     @JoinColumn(name = "gym_id")
     @JsonBackReference
     private Gym gym;
-
-
 }

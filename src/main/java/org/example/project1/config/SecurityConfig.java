@@ -71,6 +71,3 @@ public class SecurityConfig {
         return new CorsFilter(source);
     }
 }
-
-
-
