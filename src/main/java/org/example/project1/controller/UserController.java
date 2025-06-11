@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.project1.dto.LoginDto;
 import org.example.project1.dto.UserDto;
 import org.example.project1.entity.User;
-import org.example.project1.service.UserService;
+import org.example.project1.service.userservice.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

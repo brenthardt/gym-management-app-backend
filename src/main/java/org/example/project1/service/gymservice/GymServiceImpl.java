@@ -1,4 +1,4 @@
-package org.example.project1.impl;
+package org.example.project1.service.gymservice;
 
 import lombok.RequiredArgsConstructor;
 import org.example.project1.dto.GymDto;
@@ -8,7 +8,6 @@ import org.example.project1.entity.Gym;
 import org.example.project1.entity.Tariff;
 import org.example.project1.entity.User;
 import org.example.project1.repository.GymRepository;
-import org.example.project1.service.gymservice.GymService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 

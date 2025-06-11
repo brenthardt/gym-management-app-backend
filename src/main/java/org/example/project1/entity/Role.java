@@ -1,4 +1,4 @@
-package org.example.project1.role;
+package org.example.project1.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

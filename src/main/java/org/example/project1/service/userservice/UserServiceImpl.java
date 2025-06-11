@@ -1,14 +1,13 @@
-package org.example.project1.impl;
+package org.example.project1.service.userservice;
 
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.example.project1.dto.*;
 import org.example.project1.entity.User;
-import org.example.project1.jwt.JwtUtil;
+import org.example.project1.service.jwt.JwtUtil;
 import org.example.project1.repository.RoleRepository;
 import org.example.project1.repository.UserRepository;
 import org.example.project1.entity.Role;
-import org.example.project1.service.userservice.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

@@ -1,11 +1,7 @@
-package org.example.project1.service;
+package org.example.project1.service.gymservice;
 
 
-import org.example.project1.dto.GymDto;
-import org.example.project1.dto.LoginDto;
-import org.example.project1.dto.UserDto;
 import org.example.project1.entity.Gym;
-import org.example.project1.entity.User;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 

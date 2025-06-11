@@ -3,9 +3,8 @@ package org.example.project1.controller;
 
 
 import lombok.RequiredArgsConstructor;
-import org.example.project1.dto.GymDto;
 import org.example.project1.entity.Gym;
-import org.example.project1.service.GymService;
+import org.example.project1.service.gymservice.GymService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

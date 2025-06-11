@@ -1,4 +1,4 @@
-package org.example.project1.service;
+package org.example.project1.service.tariffservice;
 
 
 import org.example.project1.entity.Tariff;

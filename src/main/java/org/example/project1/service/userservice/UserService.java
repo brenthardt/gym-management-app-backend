@@ -1,4 +1,4 @@
-package org.example.project1.service;
+package org.example.project1.service.userservice;
 
 
 import org.example.project1.dto.LoginDto;

@@ -1,6 +1,6 @@
 package org.example.project1.repository;
 
-import org.example.project1.role.Role;
+import org.example.project1.entity.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
