@@ -36,8 +36,4 @@ public class TariffController {
     public ResponseEntity<?> update(@PathVariable UUID id,@RequestBody Tariff tariff) {
         return tariffService.update(id, tariff);
     }
-
-
-
-
 }

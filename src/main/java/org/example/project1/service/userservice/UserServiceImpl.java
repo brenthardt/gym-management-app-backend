@@ -4,7 +4,7 @@ import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.example.project1.dto.*;
 import org.example.project1.entity.User;
-import org.example.project1.service.jwt.JwtUtil;
+import org.example.project1.service.jwt.JwtService;
 import org.example.project1.repository.RoleRepository;
 import org.example.project1.repository.UserRepository;
 import org.example.project1.entity.Role;
@@ -23,7 +23,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
+    private final JwtService jwtService;
 
     @Override
     public ResponseEntity<?> findAll() {
@@ -122,8 +122,8 @@ public class UserServiceImpl implements UserService {
 
         User savedUser = userRepository.save(user);
 
-        String token = jwtUtil.generateToken(savedUser.getPhone(), "ROLE_USER");
-        String refreshToken = jwtUtil.generateRefreshToken(savedUser.getPhone(), "ROLE_USER");
+        String token = jwtService.generateToken(savedUser.getPhone(), "ROLE_USER");
+        String refreshToken = jwtService.generateRefreshToken(savedUser.getPhone(), "ROLE_USER");
 
         savedUser.setRefreshToken(refreshToken);
         userRepository.save(savedUser);
@@ -150,8 +150,8 @@ public class UserServiceImpl implements UserService {
                                 .map(Role::getName)
                                 .orElse("UNKNOWN");
 
-                        String token = jwtUtil.generateToken(user.getPhone(), mainRole);
-                        String refreshToken = jwtUtil.generateRefreshToken(user.getPhone(), mainRole);
+                        String token = jwtService.generateToken(user.getPhone(), mainRole);
+                        String refreshToken = jwtService.generateRefreshToken(user.getPhone(), mainRole);
 
 
 
@@ -183,7 +183,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public ResponseEntity<?> refreshToken(String refreshToken) {
         try {
-            Claims claims = jwtUtil.getClaims(refreshToken);
+            Claims claims = jwtService.getClaims(refreshToken);
             String phone = claims.getSubject();
             String role = claims.get("role", String.class);
 
@@ -194,13 +194,12 @@ public class UserServiceImpl implements UserService {
                 return ResponseEntity.status(401).body("Token subject mismatch");
             }
 
-            String newAccessToken = jwtUtil.generateToken(phone, role);
-
-            String newRefreshToken = jwtUtil.generateRefreshToken(phone, role);
+            String newAccessToken = jwtService.generateToken(phone, role);
+            String newRefreshToken = jwtService.generateRefreshToken(phone, role);
             user.setRefreshToken(newRefreshToken);
             userRepository.save(user);
 
-            System.out.println("New tokens generated and saved");
+
 
             return ResponseEntity.ok(
                     new LoginResponse(
@@ -214,7 +213,7 @@ public class UserServiceImpl implements UserService {
             );
 
         } catch (Exception e) {
-            System.out.println(" Exception during refresh: " + e.getMessage());
+
             e.printStackTrace();
             return ResponseEntity.status(403).body("Refresh token expired or invalid");
         }

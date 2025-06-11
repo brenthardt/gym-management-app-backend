@@ -1,7 +1,7 @@
 package org.example.project1.config;
 
 import lombok.RequiredArgsConstructor;
-import org.example.project1.service.jwt.JwtFilter;
+import org.example.project1.service.jwt.filter.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;

@@ -57,7 +57,4 @@ public class UserController {
     public ResponseEntity<?> refreshToken(@RequestBody Map<String, String> req) {
         return userService.refreshToken(req.get("refreshToken"));
     }
-
-
-
 }

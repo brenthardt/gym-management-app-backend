@@ -36,8 +36,4 @@ public class GymController {
     public ResponseEntity<?> update(@PathVariable UUID id,@RequestBody Gym gym) {
         return gymService.update(id, gym);
     }
-
-
-
-
 }
