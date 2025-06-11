@@ -21,5 +21,5 @@ public class SubscriptionType {
     private String name;
     private Double price;
     private String title;
-    private int dayCount;
+
 }

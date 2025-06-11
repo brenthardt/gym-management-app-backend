@@ -32,7 +32,4 @@ public class Subscription {
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
-
-
-
 }
