@@ -3,7 +3,7 @@ package org.example.project1.impl;
 import lombok.RequiredArgsConstructor;
 import org.example.project1.entity.Tariff;
 import org.example.project1.repository.TariffRepository;
-import org.example.project1.service.TariffService;
+import org.example.project1.service.tariffservice.TariffService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 

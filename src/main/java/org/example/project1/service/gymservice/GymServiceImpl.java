@@ -8,7 +8,7 @@ import org.example.project1.entity.Gym;
 import org.example.project1.entity.Tariff;
 import org.example.project1.entity.User;
 import org.example.project1.repository.GymRepository;
-import org.example.project1.service.GymService;
+import org.example.project1.service.gymservice.GymService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
