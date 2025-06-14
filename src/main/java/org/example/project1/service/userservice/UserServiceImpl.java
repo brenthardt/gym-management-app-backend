@@ -101,13 +101,11 @@ public class UserServiceImpl implements UserService {
         Gym gym = gymRepository.findById(gymId)
                 .orElseThrow(() -> new RuntimeException("Gym not found"));
 
-        // Add relationships
         user.getGyms().add(gym);
         user.getTariffs().add(tariff);
         gym.getMembers().add(user);
         tariff.getUsers().add(user);
 
-        // Save all entities
         User savedUser = userRepository.save(user);
         gymRepository.save(gym);
         tariffRepository.save(tariff);
