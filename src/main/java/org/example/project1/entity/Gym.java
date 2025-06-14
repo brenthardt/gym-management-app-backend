@@ -1,12 +1,12 @@
 package org.example.project1.entity;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.example.project1.type.Type;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,12 +22,12 @@ public class Gym {
     private String name;
     private String location;
 
-    @OneToMany( fetch = FetchType.EAGER)
-    @JoinColumn(name = "plan_id")
-    private List<Tariff> plans;
+    @OneToMany(mappedBy = "gym", fetch = FetchType.EAGER)
+    @JsonIgnoreProperties("gym")
+    private List<Tariff> tariffs = new ArrayList<>();
 
-    @OneToMany( fetch = FetchType.EAGER)
-    @JoinColumn(name = "member_id")
-    @JsonManagedReference
-    private List<User> members;
+    @ManyToMany(mappedBy = "gyms", fetch = FetchType.EAGER)
+    @JsonIgnoreProperties("gyms")
+    private List<User> members = new ArrayList<>();
+
 }

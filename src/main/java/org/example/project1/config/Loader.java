@@ -21,10 +21,8 @@ public class Loader implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Initialize roles
         initRoles();
         
-        // Initialize admin users
         initAdminUsers();
     }
     

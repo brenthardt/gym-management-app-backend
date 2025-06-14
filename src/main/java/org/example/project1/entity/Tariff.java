@@ -1,13 +1,14 @@
 package org.example.project1.entity;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.example.project1.type.Type;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -27,6 +28,11 @@ public class Tariff {
 
     @ManyToOne
     @JoinColumn(name = "gym_id")
-    @JsonBackReference
+    @JsonIgnoreProperties("tariffs")
     private Gym gym;
+
+    @ManyToMany(mappedBy = "tariffs", fetch = FetchType.EAGER)
+    @JsonIgnoreProperties("tariffs")
+    private List<User> users = new ArrayList<>();
+
 }

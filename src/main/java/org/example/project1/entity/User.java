@@ -1,6 +1,6 @@
 package org.example.project1.entity;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -8,10 +8,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Entity
 @Data
@@ -30,21 +27,40 @@ public class User implements UserDetails {
     private List<Role> roles;
     @Column(length = 1000)
     private String refreshToken;
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "gym_id")
-    @JsonBackReference
-    private Gym gym;
 
-    @ManyToOne
-    @JoinColumn(name = "tariff_id")
-    private Tariff tariff;
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_gym",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "gym_id")
+    )
+    @JsonIgnoreProperties("members")
+    private List<Gym> gyms = new ArrayList<>();
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_tariff",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "tariff_id")
+    )
+    @JsonIgnoreProperties("users")
+    private List<Tariff> tariffs = new ArrayList<>();
 
     @ManyToOne
     @JoinColumn(name = "subscription_id")
     private Subscription subscription;
 
-    private Integer duration;
     private Date purchaseDate;
+
+    public void addGym(Gym gym) {
+        this.gyms.add(gym);
+        gym.getMembers().add(this);
+    }
+
+    public void addTariff(Tariff tariff) {
+        this.tariffs.add(tariff);
+        tariff.getUsers().add(this);
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
