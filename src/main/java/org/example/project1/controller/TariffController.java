@@ -1,7 +1,5 @@
 package org.example.project1.controller;
 
-
-
 import lombok.RequiredArgsConstructor;
 import org.example.project1.entity.Tariff;
 import org.example.project1.service.tariffservice.TariffService;

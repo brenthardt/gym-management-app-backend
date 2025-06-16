@@ -16,9 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
-
 import java.util.List;
-
 
 @Configuration
 @EnableWebSecurity
@@ -35,7 +33,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/users/signup", "/users/login").permitAll()
+                        .requestMatchers("/users/signup", "/users/login", "/api/webhook").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users/refresh").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/**","/gym/**","/tariff/**").permitAll()
@@ -44,12 +42,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/users/**","/gym/**","/tariff/**").hasAnyAuthority("ROLE_ADMIN","ROLE_SUPERADMIN")
                         .anyRequest().authenticated()
                 );
-
         return http.build();
     }
-
-
-
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -64,10 +58,8 @@ public class SecurityConfig {
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setExposedHeaders(List.of("Authorization"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-
         return new CorsFilter(source);
     }
 }

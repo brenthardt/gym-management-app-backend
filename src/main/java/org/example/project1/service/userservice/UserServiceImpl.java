@@ -304,5 +304,12 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    @Override
+    public ResponseEntity<?> findByRole(String roleName) {
+        List<UserDto> userDtos = userRepository.findByRoleName(roleName).stream()
+                .map(this::mapToDto)
+                .toList();
+        return ResponseEntity.ok(userDtos);
+    }
 
 }

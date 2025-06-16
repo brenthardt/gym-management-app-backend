@@ -23,6 +23,11 @@ public class UserController {
         return userService.findAll();
     }
 
+    @GetMapping("/by-role")
+    public ResponseEntity<?> getUsersByRole(@RequestParam String role) {
+        return userService.findByRole(role);
+    }
+
     @PostMapping
     public User save(@RequestBody User user) {
         return userService.save(user);

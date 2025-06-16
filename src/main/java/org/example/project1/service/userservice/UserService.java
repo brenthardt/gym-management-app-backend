@@ -20,6 +20,7 @@ public interface UserService {
     ResponseEntity<?> login(LoginDto loginDto);
     ResponseEntity<?> logout(String phone);
     ResponseEntity<?> refreshToken(String refreshToken);
+    ResponseEntity<?> findByRole(String roleName);
 
 
 }
