@@ -2,6 +2,7 @@ package org.example.project1.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -13,6 +14,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "subscriptions")
+@Builder
 public class Subscription {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

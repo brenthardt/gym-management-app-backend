@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Builder;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -14,6 +15,7 @@ import java.util.*;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 @Table(name = "users")
 public class User implements UserDetails {
 
@@ -57,6 +59,7 @@ public class User implements UserDetails {
     @Enumerated(EnumType.STRING)
     private BotStep step;
 
+    private String tempData;
 
     public void addGym(Gym gym) {
         this.gyms.add(gym);

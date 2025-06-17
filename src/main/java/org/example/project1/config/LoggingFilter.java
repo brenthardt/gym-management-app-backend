@@ -3,7 +3,6 @@ package org.example.project1.config;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
-
 import java.io.IOException;
 
 @Component

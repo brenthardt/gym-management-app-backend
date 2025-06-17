@@ -170,19 +170,14 @@ public class TariffServiceImpl implements TariffService {
                     if (tariff.getGym() != null) {
                         Gym newGym = gymRepository.findById(tariff.getGym().getId())
                                 .orElseThrow(() -> new RuntimeException("Gym not found"));
-
-                        // Remove from old gym if exists
                         if (existingTariff.getGym() != null) {
                             existingTariff.getGym().getTariffs().remove(existingTariff);
                             gymRepository.save(existingTariff.getGym());
                         }
-
-                        // Add to new gym
                         existingTariff.setGym(newGym);
                         newGym.getTariffs().add(existingTariff);
                         gymRepository.save(newGym);
                     } else if (existingTariff.getGym() != null) {
-                        // Remove from gym if new gym is null
                         existingTariff.getGym().getTariffs().remove(existingTariff);
                         gymRepository.save(existingTariff.getGym());
                         existingTariff.setGym(null);

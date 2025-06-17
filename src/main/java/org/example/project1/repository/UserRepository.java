@@ -18,6 +18,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByRefreshToken(String refreshToken);
     Optional<User> findByTelegramChatId(Long telegramChatId);
     
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles WHERE u.telegramChatId = :telegramChatId")
+    Optional<User> findByTelegramChatIdWithRoles(@Param("telegramChatId") Long telegramChatId);
+    
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName")
     List<User> findByRoleName(@Param("roleName") String roleName);
 

@@ -5,7 +5,6 @@ import org.example.project1.entity.Tariff;
 import org.example.project1.service.tariffservice.TariffService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.UUID;
 
 @RestController

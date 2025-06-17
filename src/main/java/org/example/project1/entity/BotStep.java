@@ -3,5 +3,16 @@ package org.example.project1.entity;
 public enum BotStep {
     NONE,
     START,
-    SEND_PHONE
+    SEND_PHONE,
+    ADMIN_MENU,
+    ADD_USER_NAME,
+    ADD_USER_PHONE,
+    ADD_USER_GYM,
+    ADD_USER_PASSWORD,
+    ADD_USER_SELECT_TARIFF,
+    ADD_TARIFF_NAME,
+    ADD_TARIFF_PRICE,
+    ADD_TARIFF_DURATION,
+    ADD_TARIFF_DESCRIPTION,
+    WAITING_FOR_REPORT_TYPE
 }

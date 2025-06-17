@@ -34,11 +34,9 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User save(User user) {
-        // If this is an update (user has ID), find existing user and update
         if (user.getId() != null) {
             return userRepository.findById(user.getId())
                     .map(existingUser -> {
-                        // Update fields that are not null
                         if (user.getName() != null) {
                             existingUser.setName(user.getName());
                         }
@@ -326,7 +324,6 @@ public class UserServiceImpl implements UserService {
             );
 
         } catch (Exception e) {
-
             e.printStackTrace();
             return ResponseEntity.status(403).body("Refresh token expired or invalid");
         }
@@ -342,7 +339,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User findByChatId(Long chatId) {
-        return userRepository.findByTelegramChatId(Long.valueOf(chatId))
+        return userRepository.findByTelegramChatId((chatId))
                 .orElse(null);
     }
 

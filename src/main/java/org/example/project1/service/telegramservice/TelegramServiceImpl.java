@@ -7,7 +7,6 @@ import org.springframework.web.client.RestTemplate;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 
-
 @Service
 public class TelegramServiceImpl implements TelegramService {
     @Value("${telegram.bot.token}")
@@ -20,8 +19,10 @@ public class TelegramServiceImpl implements TelegramService {
     }
 
     public void deleteMessage(DeleteMessage deleteMessage) {
-        HttpEntity<DeleteMessage> request = new HttpEntity<>(deleteMessage);
-        restTemplate.postForObject("https://api.telegram.org/bot" + token + "/deleteMessage", request, DeleteMessage.class);
+        try {
+            HttpEntity<DeleteMessage> request = new HttpEntity<>(deleteMessage);
+            restTemplate.postForObject("https://api.telegram.org/bot" + token + "/deleteMessage", request, DeleteMessage.class);
+        } catch (Exception ignored) {
+        }
     }
 }
-

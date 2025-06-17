@@ -23,5 +23,4 @@ public interface UserService {
     ResponseEntity<?> findByRole(String roleName);
     User findByChatId(Long chatId);
 
-
 }
