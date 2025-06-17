@@ -24,7 +24,7 @@ public class Tariff {
     private Double price;
     private Date endDate;
     private Integer duration;
-    @Enumerated(EnumType.STRING)
+    private String description;
 
     @ManyToOne
     @JoinColumn(name = "gym_id")

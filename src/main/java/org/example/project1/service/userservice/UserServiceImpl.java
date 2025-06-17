@@ -34,13 +34,41 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User save(User user) {
+        // If this is an update (user has ID), find existing user and update
+        if (user.getId() != null) {
+            return userRepository.findById(user.getId())
+                    .map(existingUser -> {
+                        // Update fields that are not null
+                        if (user.getName() != null) {
+                            existingUser.setName(user.getName());
+                        }
+                        if (user.getPhone() != null) {
+                            existingUser.setPhone(user.getPhone());
+                        }
+                        if (user.getTelegramChatId() != null) {
+                            existingUser.setTelegramChatId(user.getTelegramChatId());
+                        }
+                        if (user.getPassword() != null && !user.getPassword().isEmpty()) {
+                            existingUser.setPassword(passwordEncoder.encode(user.getPassword()));
+                        }
+                        if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+                            existingUser.setRoles(user.getRoles());
+                        }
+                        return userRepository.save(existingUser);
+                    })
+                    .orElseThrow(() -> new RuntimeException("User not found for update"));
+        }
+
+        // For new users
         if (user.getRoles() == null || user.getRoles().isEmpty()) {
             Role userRole = roleRepository.findByName("ROLE_USER")
                     .orElseThrow(() -> new RuntimeException("ROLE_USER not found"));
             user.setRoles(List.of(userRole));
         }
 
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        if (user.getPassword() != null && !user.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
 
         if (user.getPurchaseDate() == null) {
             user.setPurchaseDate(new Date());
@@ -310,6 +338,12 @@ public class UserServiceImpl implements UserService {
                 .map(this::mapToDto)
                 .toList();
         return ResponseEntity.ok(userDtos);
+    }
+
+    @Override
+    public User findByChatId(Long chatId) {
+        return userRepository.findByTelegramChatId(Long.valueOf(chatId))
+                .orElse(null);
     }
 
 }

@@ -16,8 +16,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByPhone(String phone);
     boolean existsByPhone(String phone);
     Optional<User> findByRefreshToken(String refreshToken);
+    Optional<User> findByTelegramChatId(Long telegramChatId);
     
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName")
     List<User> findByRoleName(@Param("roleName") String roleName);
 
+    Optional<User> findByName(String name);
 }

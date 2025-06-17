@@ -15,7 +15,7 @@ public interface TariffService {
     Tariff save(Tariff tariff);
     Tariff saveTariffWithUserAndGym(Tariff tariff, User user, Gym gym);
     ResponseEntity<?> delete(UUID id);
-ResponseEntity<?> update(UUID id, Tariff tariff);
+    ResponseEntity<?> update(UUID id, Tariff tariff);
 
 
 }

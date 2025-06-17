@@ -1,7 +1,6 @@
 package org.example.project1.dto;
 
 import lombok.Data;
-
 import java.time.LocalDate;
 import java.util.UUID;
 @Data

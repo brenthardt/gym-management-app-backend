@@ -28,6 +28,8 @@ public class User implements UserDetails {
     @Column(length = 1000)
     private String refreshToken;
 
+    private Long telegramChatId;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_gym",
@@ -51,6 +53,10 @@ public class User implements UserDetails {
     private Subscription subscription;
 
     private Date purchaseDate;
+
+    @Enumerated(EnumType.STRING)
+    private BotStep step;
+
 
     public void addGym(Gym gym) {
         this.gyms.add(gym);

@@ -21,6 +21,7 @@ public interface UserService {
     ResponseEntity<?> logout(String phone);
     ResponseEntity<?> refreshToken(String refreshToken);
     ResponseEntity<?> findByRole(String roleName);
+    User findByChatId(Long chatId);
 
 
 }
