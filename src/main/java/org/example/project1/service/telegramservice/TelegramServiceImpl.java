@@ -20,8 +20,8 @@ public class TelegramServiceImpl implements TelegramService {
 
     public void deleteMessage(DeleteMessage deleteMessage) {
         try {
-            HttpEntity<DeleteMessage> request = new HttpEntity<>(deleteMessage);
-            restTemplate.postForObject("https://api.telegram.org/bot" + token + "/deleteMessage", request, DeleteMessage.class);
+        HttpEntity<DeleteMessage> request = new HttpEntity<>(deleteMessage);
+        restTemplate.postForObject("https://api.telegram.org/bot" + token + "/deleteMessage", request, DeleteMessage.class);
         } catch (Exception ignored) {
         }
     }

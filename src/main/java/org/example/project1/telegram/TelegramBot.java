@@ -21,6 +21,9 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -36,12 +39,20 @@ public class TelegramBot {
     private final PasswordEncoder passwordEncoder;
 
     public void onUpdateReceived(Update update) {
+        if (update.hasCallbackQuery()) {
+            CallbackQuery callbackQuery = update.getCallbackQuery();
+            Long chatId = callbackQuery.getMessage().getChatId();
+            String data = callbackQuery.getData();
+            User user = userRepository.findByTelegramChatIdWithRoles(chatId).orElse(null);
+            if (user != null && user.getStep() == BotStep.WAITING_FOR_REPORT_TYPE) {
+                handleReportRequest(user, data, chatId);
+                return;
+            }
+        }
         if (!update.hasMessage()) return;
         Message message = update.getMessage();
         Long chatId = message.getChatId();
-
         createRolesIfNotExist();
-
         boolean isStart = message.hasText() && message.getText().equals("/start");
         if (isStart) {
             userRepository.findByTelegramChatIdWithRoles(chatId).ifPresent(existingUser -> {
@@ -49,13 +60,11 @@ public class TelegramBot {
                 existingUser.setTelegramChatId(null);
                 userRepository.save(existingUser);
             });
-            
             SendMessage send = new SendMessage(chatId.toString(), "Iltimos, telefon raqamingizni yuboring.");
             send.setReplyMarkup(phoneButton());
             telegramService.sendMessage(send);
             return;
         }
-
         if (message.hasContact()) {
             String phone = message.getContact().getPhoneNumber();
             User dbUser = userRepository.findByPhone(phone).orElse(null);
@@ -63,7 +72,6 @@ public class TelegramBot {
                 dbUser.setTelegramChatId(chatId);
                 dbUser.setStep(BotStep.NONE);
                 userRepository.save(dbUser);
-                
                 StringBuilder userInfo = new StringBuilder();
                 userInfo.append("✅ Siz muvaffaqiyatli ro'yxatdan o'tdingiz!\n\n");
                 userInfo.append("👤 Foydalanuvchi ma'lumotlari:\n");
@@ -77,7 +85,6 @@ public class TelegramBot {
                     userInfo.append("💰 Narx: ").append(userTariff.getPrice()).append(" so'm\n");
                     userInfo.append("⏰ Muddat: ").append(userTariff.getDuration()).append(" kun\n");
                 }
-
                 SendMessage send = new SendMessage(chatId.toString(), userInfo.toString());
                 send.setReplyMarkup(adminKeyboard());
                 telegramService.sendMessage(send);
@@ -88,7 +95,6 @@ public class TelegramBot {
                 return;
             }
         }
-
         User user = userRepository.findByTelegramChatIdWithRoles(chatId).orElse(null);
         if (user == null) {
             SendMessage send = new SendMessage(chatId.toString(), "Iltimos, telefon raqamingizni yuboring.");
@@ -96,16 +102,13 @@ public class TelegramBot {
             telegramService.sendMessage(send);
             return;
         }
-
         boolean isAdmin = user.getRoles() != null && user.getRoles().stream()
                 .anyMatch(r -> r.getName().equals("ROLE_ADMIN") || r.getName().equals("ROLE_SUPERADMIN"));
-
         if (!isAdmin) {
             SendMessage send = new SendMessage(chatId.toString(), "Sizda admin huquqlari mavjud emas.");
             telegramService.sendMessage(send);
             return;
         }
-
         if (message.hasText()) {
             String messageText = message.getText();
             switch (messageText) {
@@ -127,7 +130,6 @@ public class TelegramBot {
                     return;
             }
         }
-
         if (user.getStep() != null && user.getStep() != BotStep.NONE) {
             handleUserSteps(user, message);
         }
@@ -433,16 +435,31 @@ public class TelegramBot {
     private void showReportOptions(User admin, Long chatId) {
         admin.setStep(BotStep.WAITING_FOR_REPORT_TYPE);
         userRepository.save(admin);
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("📈 Hisobot turlari:\n\n");
-        sb.append("1. Barcha foydalanuvchilar\n");
-        sb.append("2. Admin foydalanuvchilar\n");
-        sb.append("3. Ta'riflar bo'yicha hisobot\n");
-        sb.append("4. Gym'lar bo'yicha hisobot\n");
-        sb.append("\nKerakli hisobot raqamini kiriting:");
-
-        SendMessage send = new SendMessage(chatId.toString(), sb.toString());
+        String text = "📈 Hisobot turlari:\n\n" +
+                "1. Barcha foydalanuvchilar\n" +
+                "2. Admin foydalanuvchilar\n" +
+                "3. Ta'riflar bo'yicha hisobot\n" +
+                "4. Gym'lar bo'yicha hisobot\n" +
+                "\nKerakli hisobot turini tanlang:";
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        for (int i = 1; i <= 3; i++) {
+            InlineKeyboardButton btn = new InlineKeyboardButton();
+            btn.setText(String.valueOf(i));
+            btn.setCallbackData(String.valueOf(i));
+            row1.add(btn);
+        }
+        rows.add(row1);
+        List<InlineKeyboardButton> row2 = new ArrayList<>();
+        InlineKeyboardButton btn4 = new InlineKeyboardButton();
+        btn4.setText("4");
+        btn4.setCallbackData("4");
+        row2.add(btn4);
+        rows.add(row2);
+        markup.setKeyboard(rows);
+        SendMessage send = new SendMessage(chatId.toString(), text);
+        send.setReplyMarkup(markup);
         telegramService.sendMessage(send);
     }
 
@@ -571,7 +588,6 @@ public class TelegramBot {
             admin.setStep(BotStep.ADD_TARIFF_DURATION);
             admin.setTempData(admin.getTempData() + "|" + price);
             userRepository.save(admin);
-
             SendMessage send = new SendMessage(chatId.toString(),
                     "✅ Narx: " + price + " so'm\n\nTa'rif muddatini kiriting (kun):");
             telegramService.sendMessage(send);

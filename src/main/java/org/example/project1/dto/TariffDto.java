@@ -2,8 +2,6 @@ package org.example.project1.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
-import org.example.project1.type.Type;
-
 import java.util.Date;
 import java.util.UUID;
 
