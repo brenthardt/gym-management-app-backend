@@ -160,13 +160,11 @@ public class TariffServiceImpl implements TariffService {
     public ResponseEntity<?> update(UUID id, Tariff tariff) {
         return tariffRepository.findById(id)
                 .map(existingTariff -> {
-                    // Update basic fields
                     existingTariff.setName(tariff.getName());
                     existingTariff.setPrice(tariff.getPrice());
                     existingTariff.setEndDate(tariff.getEndDate());
                     existingTariff.setDuration(tariff.getDuration());
 
-                    // Handle gym relationship update
                     if (tariff.getGym() != null) {
                         Gym newGym = gymRepository.findById(tariff.getGym().getId())
                                 .orElseThrow(() -> new RuntimeException("Gym not found"));

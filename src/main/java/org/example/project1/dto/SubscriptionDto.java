@@ -13,4 +13,5 @@ public class SubscriptionDto {
     private Integer duration;
     private UserDto user;
     private TariffDto tariff;
+    private String name;
 }

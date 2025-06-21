@@ -6,8 +6,11 @@ import org.example.project1.repository.*;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.example.project1.repository.SubscriptionRepository;
+import org.example.project1.service.subscriptionservice.SubscriptionService;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -17,15 +20,105 @@ public class Loader implements CommandLineRunner {
     private final GymRepository gymRepository;
     private final TariffRepository tariffRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SubscriptionRepository subscriptionRepository;
+    private final SubscriptionService subscriptionService;
 
     @Override
     public void run(String... args) {
+        cleanupDuplicatePhones();
+        cleanupDuplicateTelegramChatIds();
         initRoles();
         initGyms();
         initTariffs();
         initAdminUsers();
         initRegularUsers();
-        assignGymsToUsers();
+        assignGymsAndTariffsToUsers();
+    }
+
+    private void cleanupDuplicatePhones() {
+        try {
+            System.out.println("Starting duplicate phone numbers cleanup...");
+            
+            try {
+                userRepository.deleteDuplicateUsers();
+                System.out.println("Bulk duplicate cleanup completed.");
+            } catch (Exception e) {
+                System.out.println("Bulk cleanup failed, falling back to individual cleanup: " + e.getMessage());
+                
+                List<Object[]> duplicates = userRepository.findDuplicatePhones();
+                if (!duplicates.isEmpty()) {
+                    System.out.println("Found " + duplicates.size() + " duplicate phone numbers. Cleaning up...");
+                    
+                    for (Object[] duplicate : duplicates) {
+                        String phone = (String) duplicate[0];
+                        Long count = (Long) duplicate[1];
+                        System.out.println("Phone: " + phone + " has " + count + " duplicates");
+                        
+                        List<User> usersWithSamePhone = userRepository.findAllByPhone(phone);
+                        
+                        if (usersWithSamePhone.size() > 1) {
+                            User keepUser = usersWithSamePhone.stream()
+                                .filter(user -> user.getTelegramChatId() != null)
+                                .findFirst()
+                                .orElse(usersWithSamePhone.get(0));
+                            
+                            System.out.println("Keeping user: " + keepUser.getName() + " (ID: " + keepUser.getId() + ")");
+                            
+                            for (User user : usersWithSamePhone) {
+                                if (!user.getId().equals(keepUser.getId())) {
+                                    System.out.println("Deleting duplicate user: " + user.getName() + " (ID: " + user.getId() + ") with phone: " + user.getPhone());
+                                    userRepository.delete(user);
+                                }
+                            }
+                        }
+                    }
+                    System.out.println("Individual duplicate phone numbers cleanup completed.");
+                } else {
+                    System.out.println("No duplicate phone numbers found.");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error during duplicate phone cleanup: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void cleanupDuplicateTelegramChatIds() {
+        try {
+            System.out.println("Starting duplicate telegram chat IDs cleanup...");
+            
+            List<User> allUsers = userRepository.findAll();
+            Map<Long, List<User>> chatIdGroups = allUsers.stream()
+                .filter(user -> user.getTelegramChatId() != null)
+                .collect(Collectors.groupingBy(User::getTelegramChatId));
+            
+            for (Map.Entry<Long, List<User>> entry : chatIdGroups.entrySet()) {
+                Long chatId = entry.getKey();
+                List<User> usersWithSameChatId = entry.getValue();
+                
+                if (usersWithSameChatId.size() > 1) {
+                    System.out.println("Found " + usersWithSameChatId.size() + " users with same telegram chat ID: " + chatId);
+                    
+                    User keepUser = usersWithSameChatId.stream()
+                        .filter(user -> user.getPhone() != null && !user.getPhone().isEmpty())
+                        .findFirst()
+                        .orElse(usersWithSameChatId.get(0));
+                    
+                    System.out.println("Keeping user: " + keepUser.getName() + " (ID: " + keepUser.getId() + ")");
+                    
+                    for (User user : usersWithSameChatId) {
+                        if (!user.getId().equals(keepUser.getId())) {
+                            System.out.println("Deleting duplicate user: " + user.getName() + " (ID: " + user.getId() + ") with chat ID: " + chatId);
+                            userRepository.delete(user);
+                        }
+                    }
+                }
+            }
+            System.out.println("Duplicate telegram chat IDs cleanup completed.");
+        } catch (Exception e) {
+            System.err.println("Error during duplicate telegram chat IDs cleanup: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void initRoles() {
@@ -40,17 +133,24 @@ public class Loader implements CommandLineRunner {
     }
 
     private void initGyms() {
-        List<Gym> gyms = List.of(
-            Gym.builder().name("PowerGym Tashkent").location("Tashkent, Yunusobod tumani").members(new ArrayList<>()).build(),
-            Gym.builder().name("FitnessPro Samarkand").location("Samarkand, Registon ko'chasi").members(new ArrayList<>()).build(),
-            Gym.builder().name("BodyBuilder Gym").location("Tashkent, Chilonzor tumani").members(new ArrayList<>()).build(),
-            Gym.builder().name("Iron Paradise").location("Tashkent, Mirzo Ulug'bek tumani").members(new ArrayList<>()).build(),
-            Gym.builder().name("Fitness Zone").location("Namangan, Markaziy ko'cha").members(new ArrayList<>()).build()
-        );
-        for (Gym gym : gyms) {
-            if (gymRepository.findByName(gym.getName()).isEmpty()) {
-                gymRepository.save(gym);
-            }
+        if (gymRepository.count() == 0) {
+            Gym gym1 = new Gym();
+            gym1.setName("PowerGym Tashkent");
+            gym1.setLocation("Tashkent, Yunusobod tumani");
+            gym1.setMembers(new ArrayList<>());
+            gymRepository.save(gym1);
+
+            Gym gym2 = new Gym();
+            gym2.setName("FitnessPro Samarkand");
+            gym2.setLocation("Samarkand, Registon ko'chasi");
+            gym2.setMembers(new ArrayList<>());
+            gymRepository.save(gym2);
+
+            Gym gym3 = new Gym();
+            gym3.setName("BodyBuilder Gym");
+            gym3.setLocation("Tashkent, Chilonzor tumani");
+            gym3.setMembers(new ArrayList<>());
+            gymRepository.save(gym3);
         }
     }
 
@@ -72,44 +172,38 @@ public class Loader implements CommandLineRunner {
     }
 
     private void initAdminUsers() {
-        final String superAdminPhone = "+998907110700";
-        List<User> superAdmins = userRepository.findAll().stream()
-            .filter(u -> superAdminPhone.equals(u.getPhone()))
-            .toList();
-        if (superAdmins.size() > 1) {
-            for (int i = 1; i < superAdmins.size(); i++) {
-                userRepository.delete(superAdmins.get(i));
-            }
-        }
-
+        final String superAdminPhone = "+998883054343";
         final String adminPhone = "+998907110709";
-        Role superAdminRole = roleRepository.findByName("ROLE_SUPERADMIN")
-            .orElseGet(() -> roleRepository.save(Role.builder().name("ROLE_SUPERADMIN").build()));
-        Role adminRole = roleRepository.findByName("ROLE_ADMIN")
-            .orElseGet(() -> roleRepository.save(Role.builder().name("ROLE_ADMIN").build()));
+        Role superAdminRole = roleRepository.findByName("ROLE_SUPERADMIN").orElse(null);
+        Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElse(null);
+        List<Gym> gyms = gymRepository.findAll();
 
         if (userRepository.findByPhone(superAdminPhone).isEmpty()) {
-            userRepository.save(User.builder()
-                .name("SuperAdmin User")
-                .phone(superAdminPhone)
-                .password(passwordEncoder.encode("superadmin123"))
-                .roles(List.of(superAdminRole))
-                .purchaseDate(new Date())
-                .gyms(new ArrayList<>())
-                .tariffs(new ArrayList<>())
-                .build());
+            User superAdmin = new User();
+            superAdmin.setName("Mirshod Hojiyev");
+            superAdmin.setPhone(superAdminPhone);
+            superAdmin.setPassword(passwordEncoder.encode("superadmin123"));
+            superAdmin.setRoles(List.of(superAdminRole));
+            superAdmin.setPurchaseDate(new Date());
+            superAdmin.setGyms(new ArrayList<>());
+            superAdmin.setTariffs(new ArrayList<>());
+            userRepository.save(superAdmin);
         }
 
         if (userRepository.findByPhone(adminPhone).isEmpty()) {
-            userRepository.save(User.builder()
-                .name("Shaxzod")
-                .phone(adminPhone)
-                .password(passwordEncoder.encode("admin123"))
-                .roles(List.of(adminRole))
-                .purchaseDate(new Date())
-                .gyms(new ArrayList<>())
-                .tariffs(new ArrayList<>())
-                .build());
+            User admin = new User();
+            admin.setName("Shaxzod");
+            admin.setPhone(adminPhone);
+            admin.setPassword(passwordEncoder.encode("admin123"));
+            admin.setRoles(List.of(adminRole));
+            admin.setPurchaseDate(new Date());
+            if (!gyms.isEmpty()) {
+                admin.setGyms(List.of(gyms.get(0)));
+            } else {
+                admin.setGyms(new ArrayList<>());
+            }
+            admin.setTariffs(new ArrayList<>());
+            userRepository.save(admin);
         }
     }
 
@@ -117,7 +211,7 @@ public class Loader implements CommandLineRunner {
         Role userRole = roleRepository.findByName("ROLE_USER")
             .orElseGet(() -> roleRepository.save(Role.builder().name("ROLE_USER").build()));
         List<User> users = List.of(
-            User.builder().name("Alisher Karimov").phone("+998901111111").password(passwordEncoder.encode("alisher123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
+            User.builder().name("Alisher").phone("+998901111111").password(passwordEncoder.encode("alisher123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
             User.builder().name("Malika Tosheva").phone("+998902222222").password(passwordEncoder.encode("malika123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
             User.builder().name("Bobur Rahimov").phone("+998903333333").password(passwordEncoder.encode("bobur123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
             User.builder().name("Nilufar Saidova").phone("+998904444444").password(passwordEncoder.encode("nilufar123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
@@ -133,24 +227,28 @@ public class Loader implements CommandLineRunner {
         }
     }
 
-    private void assignGymsToUsers() {
+    private void assignGymsAndTariffsToUsers() {
         List<Gym> gyms = gymRepository.findAll();
-        List<User> users = userRepository.findAll();
         List<Tariff> tariffs = tariffRepository.findAll();
+        List<User> users = userRepository.findAll();
         if (gyms.isEmpty() || users.isEmpty() || tariffs.isEmpty()) return;
-        for (int i = 0; i < users.size(); i++) {
-            User user = users.get(i);
-            if (user.getRoles().stream().anyMatch(role -> role.getName().equals("ROLE_USER"))) {
-                Gym gym = gyms.get(i % gyms.size());
-                Tariff tariff = tariffs.get(i % tariffs.size());
-                user.getGyms().add(gym);
-                user.getTariffs().add(tariff);
-                gym.getMembers().add(user);
-                tariff.getUsers().add(user);
-                userRepository.save(user);
-                gymRepository.save(gym);
-                tariffRepository.save(tariff);
+        int gymCount = gyms.size();
+        int tariffCount = tariffs.size();
+        int idx = 0;
+        for (User user : users) {
+            boolean isAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> r.getName().equals("ROLE_ADMIN") || r.getName().equals("ROLE_SUPERADMIN"));
+            if (isAdmin) continue;
+            if (user.getGyms() == null || user.getGyms().isEmpty()) {
+                Gym gym = gyms.get(idx % gymCount);
+                user.setGyms(List.of(gym));
             }
+            if (user.getTariffs() == null || user.getTariffs().isEmpty()) {
+                Tariff tariff = tariffs.get(idx % tariffCount);
+                user.setTariffs(List.of(tariff));
+                subscriptionService.subscribeUserToTariff(user, tariff, tariff.getPrice().intValue(), tariff.getDuration());
+            }
+            userRepository.save(user);
+            idx++;
         }
     }
 }

@@ -27,6 +27,7 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.example.project1.service.subscriptionservice.SubscriptionService;
 
 @Component
 @RequiredArgsConstructor
@@ -37,13 +38,31 @@ public class TelegramBot {
     private final GymRepository gymRepository;
     private final TelegramServiceImpl telegramService;
     private final PasswordEncoder passwordEncoder;
+    private final SubscriptionService subscriptionService;
 
+    @Transactional
     public void onUpdateReceived(Update update) {
         if (update.hasCallbackQuery()) {
             CallbackQuery callbackQuery = update.getCallbackQuery();
             Long chatId = callbackQuery.getMessage().getChatId();
             String data = callbackQuery.getData();
-            User user = userRepository.findByTelegramChatIdWithRoles(chatId).orElse(null);
+            
+            List<User> usersWithChatId = userRepository.findAllByTelegramChatId(chatId);
+            User user = null;
+            
+            if (!usersWithChatId.isEmpty()) {
+                if (usersWithChatId.size() > 1) {
+                    System.out.println("⚠️ Found " + usersWithChatId.size() + " duplicate users for chat ID: " + chatId + ". Cleaning up...");
+                    user = usersWithChatId.get(0);
+                    cleanupDuplicateUsers(chatId);
+                    user = userRepository.findByTelegramChatIdWithRoles(chatId).orElse(user);
+                    System.out.println("✅ Duplicate users cleaned up for chat ID: " + chatId);
+                } else {
+                    user = usersWithChatId.get(0);
+                    user = userRepository.findByTelegramChatIdWithRoles(chatId).orElse(user);
+                }
+            }
+            
             if (user != null && user.getStep() == BotStep.WAITING_FOR_REPORT_TYPE) {
                 handleReportRequest(user, data, chatId);
                 return;
@@ -55,19 +74,25 @@ public class TelegramBot {
         createRolesIfNotExist();
         boolean isStart = message.hasText() && message.getText().equals("/start");
         if (isStart) {
-            userRepository.findByTelegramChatIdWithRoles(chatId).ifPresent(existingUser -> {
+            List<User> usersWithChatId = userRepository.findAllByTelegramChatId(chatId);
+            if (!usersWithChatId.isEmpty()) {
+                User existingUser = usersWithChatId.get(0);
                 existingUser.setStep(null);
                 existingUser.setTelegramChatId(null);
                 userRepository.save(existingUser);
-            });
+                
+                if (usersWithChatId.size() > 1) {
+                    userRepository.deleteDuplicateTelegramChatIdUsers();
+                }
+            }
             SendMessage send = new SendMessage(chatId.toString(), "Iltimos, telefon raqamingizni yuboring.");
             send.setReplyMarkup(phoneButton());
             telegramService.sendMessage(send);
             return;
         }
         if (message.hasContact()) {
-            String phone = message.getContact().getPhoneNumber();
-            User dbUser = userRepository.findByPhone(phone).orElse(null);
+            String phone = normalizePhoneNumber(message.getContact().getPhoneNumber());
+            User dbUser = userRepository.findFirstByPhone(phone).orElse(null);
             if (dbUser != null) {
                 dbUser.setTelegramChatId(chatId);
                 dbUser.setStep(BotStep.NONE);
@@ -76,63 +101,202 @@ public class TelegramBot {
                 userInfo.append("✅ Siz muvaffaqiyatli ro'yxatdan o'tdingiz!\n\n");
                 userInfo.append("👤 Foydalanuvchi ma'lumotlari:\n");
                 userInfo.append("📱 Telefon: ").append(dbUser.getPhone()).append("\n");
-                if (dbUser.getRoles() != null && !dbUser.getRoles().isEmpty()) {
-                    userInfo.append("🔑 Role: ").append(dbUser.getRoles().get(0).getName()).append("\n");
-                }
-                if (!dbUser.getTariffs().isEmpty()) {
+                String roleName = dbUser.getRoles() != null && !dbUser.getRoles().isEmpty() ? dbUser.getRoles().get(0).getName() : "";
+                userInfo.append("🔑 Role: ").append(roleName).append("\n");
+                if (roleName.equals("ROLE_USER")) {
+                    if (!dbUser.getGyms().isEmpty()) {
+                        Gym gym = dbUser.getGyms().get(0);
+                        userInfo.append("🏋️ Gym: ").append(gym.getName()).append(" (" + gym.getLocation() + ")\n");
+                    } else {
+                        userInfo.append("🏋️ Gym: Biriktirilmagan\n");
+                    }
+                    if (!dbUser.getTariffs().isEmpty()) {
+                        Tariff userTariff = dbUser.getTariffs().get(0);
+                        userInfo.append("📊 Ta'rif: ").append(userTariff.getName()).append("\n");
+                        userInfo.append("💰 Narx: ").append(userTariff.getPrice()).append(" so'm\n");
+                        userInfo.append("⏰ Muddat: ").append(userTariff.getDuration()).append(" kun\n");
+                    } else {
+                        userInfo.append("📊 Ta'rif: Biriktirilmagan\n");
+                    }
+                } else if (!dbUser.getTariffs().isEmpty()) {
                     Tariff userTariff = dbUser.getTariffs().get(0);
                     userInfo.append("📊 Ta'rif: ").append(userTariff.getName()).append("\n");
                     userInfo.append("💰 Narx: ").append(userTariff.getPrice()).append(" so'm\n");
                     userInfo.append("⏰ Muddat: ").append(userTariff.getDuration()).append(" kun\n");
                 }
-                SendMessage send = new SendMessage(chatId.toString(), userInfo.toString());
-                send.setReplyMarkup(adminKeyboard());
+                SendMessage send;
+                if (roleName.equals("ROLE_ADMIN")) {
+                    send = new SendMessage(chatId.toString(), userInfo.toString());
+                    send.setReplyMarkup(adminKeyboard());
+                } else if (roleName.equals("ROLE_SUPERADMIN")) {
+                    long gymCount = gymRepository.count();
+                    long userCount = userRepository.count();
+                    List<User> admins = userRepository.findByRoleName("ROLE_ADMIN");
+                    List<User> superAdmins = userRepository.findByRoleName("ROLE_SUPERADMIN");
+                    StringBuilder superAdminInfo = new StringBuilder();
+                    superAdminInfo.append("🦸 SuperAdmin panel\n\n");
+                    superAdminInfo.append("🏋️ Gymlar soni: ").append(gymCount).append("\n");
+                    superAdminInfo.append("👥 Foydalanuvchilar soni: ").append(userCount).append("\n");
+                    superAdminInfo.append("👑 Adminlar soni: ").append(admins.size()).append("\n");
+                    superAdminInfo.append("🦸 SuperAdminlar soni: ").append(superAdmins.size()).append("\n\n");
+                    superAdminInfo.append("📱 Admin telefon raqamlari:\n");
+                    for (User admin : admins) {
+                        superAdminInfo.append(admin.getPhone()).append("\n");
+                    }
+                    send = new SendMessage(chatId.toString(), superAdminInfo.toString());
+                    send.setReplyMarkup(new org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove(true));
+                } else {
+                    send = new SendMessage(chatId.toString(), userInfo.toString());
+                    send.setReplyMarkup(new org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove(true));
+                }
                 telegramService.sendMessage(send);
                 return;
             } else {
-                SendMessage send = new SendMessage(chatId.toString(), "Bu telefon raqami ro'yxatdan o'tmagan.");
+                User newUser = new User();
+                newUser.setPhone(phone);
+                String tgName = message.getContact().getFirstName() != null ? message.getContact().getFirstName() : "";
+                if (message.getContact().getLastName() != null) {
+                    tgName += " " + message.getContact().getLastName();
+                }
+                newUser.setName(tgName.trim().isEmpty() ? "Telegram user" : tgName.trim());
+                newUser.setPassword(passwordEncoder.encode(phone));
+                newUser.setTelegramChatId(chatId);
+                newUser.setStep(BotStep.NONE);
+                Role userRole = roleRepository.findByName("ROLE_USER").orElse(null);
+                if (userRole != null) {
+                    newUser.setRoles(new ArrayList<>());
+                    newUser.getRoles().add(userRole);
+                }
+                userRepository.save(newUser);
+                StringBuilder userInfo = new StringBuilder();
+                userInfo.append("✅ Siz muvaffaqiyatli ro'yxatdan o'tdingiz!\n\n");
+                userInfo.append("👤 Foydalanuvchi ma'lumotlari:\n");
+                userInfo.append("Ism: ").append(newUser.getName()).append("\n");
+                userInfo.append("📱 Telefon: ").append(newUser.getPhone()).append("\n");
+                userInfo.append("🔑 Role: ROLE_USER\n");
+                userInfo.append("🏋️ Gym: Biriktirilmagan\n");
+                userInfo.append("📊 Ta'rif: Biriktirilmagan\n");
+                SendMessage send = new SendMessage(chatId.toString(), userInfo.toString());
+                send.setReplyMarkup(new org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove(true));
                 telegramService.sendMessage(send);
                 return;
             }
         }
-        User user = userRepository.findByTelegramChatIdWithRoles(chatId).orElse(null);
+        
+        List<User> usersWithChatId = userRepository.findAllByTelegramChatId(chatId);
+        User user = null;
+        
+        if (usersWithChatId.isEmpty()) {
+            SendMessage send = new SendMessage(chatId.toString(), "Iltimos, telefon raqamingizni yuboring.");
+            send.setReplyMarkup(phoneButton());
+            telegramService.sendMessage(send);
+            return;
+        } else if (usersWithChatId.size() > 1) {
+            System.out.println("⚠️ Found " + usersWithChatId.size() + " duplicate users for chat ID: " + chatId + ". Cleaning up...");
+            user = usersWithChatId.get(0);
+            cleanupDuplicateUsers(chatId);
+            user = userRepository.findByTelegramChatIdWithRoles(chatId).orElse(user);
+            System.out.println("✅ Duplicate users cleaned up for chat ID: " + chatId);
+        } else {
+            user = usersWithChatId.get(0);
+            user = userRepository.findByTelegramChatIdWithRoles(chatId).orElse(user);
+        }
+        
         if (user == null) {
             SendMessage send = new SendMessage(chatId.toString(), "Iltimos, telefon raqamingizni yuboring.");
             send.setReplyMarkup(phoneButton());
             telegramService.sendMessage(send);
             return;
         }
-        boolean isAdmin = user.getRoles() != null && user.getRoles().stream()
-                .anyMatch(r -> r.getName().equals("ROLE_ADMIN") || r.getName().equals("ROLE_SUPERADMIN"));
-        if (!isAdmin) {
+        
+        String roleName = user.getRoles() != null && !user.getRoles().isEmpty() ? user.getRoles().get(0).getName() : "";
+        if (roleName.equals("ROLE_USER")) {
             SendMessage send = new SendMessage(chatId.toString(), "Sizda admin huquqlari mavjud emas.");
             telegramService.sendMessage(send);
             return;
         }
-        if (message.hasText()) {
-            String messageText = message.getText();
-            switch (messageText) {
-                case "👤 Add User":
-                    startAddUser(user, chatId);
+        if (roleName.equals("ROLE_SUPERADMIN")) {
+            long gymCount = gymRepository.count();
+            long userCount = userRepository.count();
+            List<User> admins = userRepository.findByRoleName("ROLE_ADMIN");
+            List<User> superAdmins = userRepository.findByRoleName("ROLE_SUPERADMIN");
+            StringBuilder superAdminInfo = new StringBuilder();
+            superAdminInfo.append("🦸 SuperAdmin panel\n\n");
+            superAdminInfo.append("🏋️ Gymlar soni: ").append(gymCount).append("\n");
+            superAdminInfo.append("👥 Foydalanuvchilar soni: ").append(userCount).append("\n");
+            superAdminInfo.append("👑 Adminlar soni: ").append(admins.size()).append("\n");
+            superAdminInfo.append("🦸 SuperAdminlar soni: ").append(superAdmins.size()).append("\n\n");
+            superAdminInfo.append("📱 Admin telefon raqamlari:\n");
+            for (User admin : admins) {
+                superAdminInfo.append(admin.getPhone()).append("\n");
+            }
+            SendMessage send = new SendMessage(chatId.toString(), superAdminInfo.toString());
+            send.setReplyMarkup(new org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove(true));
+        }
+        if (roleName.equals("ROLE_ADMIN")) {
+            if (message.hasText()) {
+                String messageText = message.getText();
+                
+                if (messageText.equals("👤 Add User") || messageText.equals("➕ Ta'rif qo'shish") || 
+                    messageText.equals("📈 Hisobot") || messageText.equals("🏠 Bosh menyu")) {
+                    
+                    if (user.getStep() != null && user.getStep() != BotStep.NONE) {
+                        user.setStep(BotStep.NONE);
+                        user.setTempData(null);
+                        userRepository.save(user);
+                    }
+                    
+                    switch (messageText) {
+                        case "👤 Add User":
+                            startAddUser(user, chatId);
+                            return;
+                        case "➕ Ta'rif qo'shish":
+                            startAddTariff(user, chatId);
+                            return;
+                        case "📈 Hisobot":
+                            showReportOptions(user, chatId);
+                            return;
+                        case "🏠 Bosh menyu":
+                            SendMessage send = new SendMessage(chatId.toString(), "Bosh menyu");
+                            send.setReplyMarkup(adminKeyboard());
+                            telegramService.sendMessage(send);
+                            return;
+                    }
+                }
+            }
+            
+            if (user.getStep() != null && user.getStep() != BotStep.NONE) {
+                if (handleUserSteps(user, message)) {
                     return;
-                case "➕ Ta'rif qo'shish":
-                    startAddTariff(user, chatId);
-                    return;
-                case "📈 Hisobot":
-                    showReportOptions(user, chatId);
-                    return;
-                case "🏠 Bosh menyu":
-                    user.setStep(BotStep.NONE);
-                    userRepository.save(user);
-                    SendMessage send = new SendMessage(chatId.toString(), "Bosh menyu");
-                    send.setReplyMarkup(adminKeyboard());
-                    telegramService.sendMessage(send);
-                    return;
+                }
             }
         }
-        if (user.getStep() != null && user.getStep() != BotStep.NONE) {
-            handleUserSteps(user, message);
+    }
+
+    private String normalizePhoneNumber(String phone) {
+        if (phone == null || phone.trim().isEmpty()) {
+            return phone;
         }
+        
+        String normalized = phone.trim();
+        
+        if (normalized.startsWith("+")) {
+            return normalized;
+        }
+        
+        if (normalized.startsWith("998")) {
+            return "+" + normalized;
+        }
+        
+        if (normalized.startsWith("8")) {
+            return "+998" + normalized.substring(1);
+        }
+        
+        if (normalized.startsWith("0")) {
+            return "+998" + normalized.substring(1);
+        }
+        
+        return normalized;
     }
 
     private void requestPassword(Long chatId) {
@@ -146,31 +310,26 @@ public class TelegramBot {
 
         switch (user.getStep()) {
             case ADD_USER_NAME:
-                if (!messageText.isBlank()) {
-                    handleAddUserName(user, messageText, chatId);
+                if (!messageText.isBlank() && messageText.trim().length() >= 2) {
+                    handleAddUserName(user, messageText.trim(), chatId);
                 } else {
-                    SendMessage send = new SendMessage(chatId.toString(), "Iltimos, foydalanuvchi ismini kiriting:");
+                    SendMessage send = new SendMessage(chatId.toString(), "❌ Iltimos, foydalanuvchi ismini kiriting (kamida 2 ta harf):");
                     telegramService.sendMessage(send);
                 }
                 return true;
 
             case ADD_USER_PHONE:
-                if (message.hasContact()) {
-                    handleAddUserPhone(user, message.getContact().getPhoneNumber(), chatId);
-                } else if (messageText.matches("\\+?[0-9]{9,15}")) {
+                String normalizedPhone = normalizePhoneNumber(messageText);
+                if (normalizedPhone != null && normalizedPhone.matches("\\+998[0-9]{9}")) {
                     handleAddUserPhone(user, messageText, chatId);
                 } else {
-                    SendMessage send = new SendMessage(chatId.toString(), "Iltimos, to'g'ri telefon raqam kiriting yoki kontakt yuboring:");
+                    SendMessage send = new SendMessage(chatId.toString(), "❌ Iltimos, to'g'ri telefon raqam kiriting (+998xxxxxxxxx, 998xxxxxxxxx, 8xxxxxxxxx yoki 0xxxxxxxxx ko'rinishida):");
                     telegramService.sendMessage(send);
                 }
                 return true;
 
             case ADD_USER_SELECT_TARIFF:
                 handleAddUserTariff(user, messageText, chatId);
-                return true;
-
-            case ADD_USER_GYM:
-                handleAddUserGym(user, messageText, chatId);
                 return true;
 
             case ADD_TARIFF_NAME:
@@ -270,19 +429,23 @@ public class TelegramBot {
         admin.setStep(BotStep.ADD_USER_PHONE);
         admin.setTempData(name);
         userRepository.save(admin);
-
         SendMessage send = new SendMessage(chatId.toString(),
-                "✅ Ism: " + name + "\n\nEndi telefon raqamini kiriting yoki yuboring:");
-        send.setReplyMarkup(phoneButton());
+                "✅ Ism: " + name + "\n\nEndi telefon raqamini matn ko'rinishida kiriting:");
         telegramService.sendMessage(send);
     }
 
     private void handleAddUserPhone(User admin, String phone, Long chatId) {
+        String normalizedPhone = normalizePhoneNumber(phone);
+        if (userRepository.findFirstByPhone(normalizedPhone).isPresent()) {
+            SendMessage send = new SendMessage(chatId.toString(), "❌ Bu telefon raqami allaqachon mavjud. Iltimos, boshqa raqam kiriting.");
+            telegramService.sendMessage(send);
+            return;
+        }
         String userName = admin.getTempData();
         User newUser = new User();
-        newUser.setPhone(phone);
+        newUser.setPhone(normalizedPhone);
         newUser.setName(userName);
-        newUser.setPassword(passwordEncoder.encode(phone));
+        newUser.setPassword(passwordEncoder.encode(normalizedPhone));
         newUser.setStep(BotStep.NONE);
         Role userRole = roleRepository.findByName("ROLE_USER").orElse(null);
         if (userRole != null) {
@@ -315,121 +478,6 @@ public class TelegramBot {
 
         SendMessage send = new SendMessage(chatId.toString(), sb.toString());
         telegramService.sendMessage(send);
-    }
-
-    private void handleAddUserTariff(User admin, String messageText, Long chatId) {
-        try {
-            UUID userId = UUID.fromString(admin.getTempData());
-            User newUser = userRepository.findById(userId).orElse(null);
-
-            if (newUser == null) {
-                SendMessage send = new SendMessage(chatId.toString(), "❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.");
-                telegramService.sendMessage(send);
-                return;
-            }
-
-            try {
-                int tariffIndex = Integer.parseInt(messageText) - 1;
-                List<Tariff> tariffs = tariffRepository.findAll();
-
-                if (tariffIndex >= 0 && tariffIndex < tariffs.size()) {
-                    Tariff selectedTariff = tariffs.get(tariffIndex);
-                    newUser.getTariffs().add(selectedTariff);
-                    userRepository.save(newUser);
-
-                    admin.setStep(BotStep.ADD_USER_GYM);
-                    userRepository.save(admin);
-
-                    showGymsForSelection(chatId);
-                } else {
-                    SendMessage send = new SendMessage(chatId.toString(), "❌ Noto'g'ri raqam. Qaytadan urinib ko'ring:");
-                    telegramService.sendMessage(send);
-                }
-            } catch (NumberFormatException e) {
-                SendMessage send = new SendMessage(chatId.toString(), "❌ Noto'g'ri raqam. Qaytadan urinib ko'ring:");
-                telegramService.sendMessage(send);
-            }
-        } catch (Exception e) {
-            SendMessage send = new SendMessage(chatId.toString(), "❌ Xatolik yuz berdi: " + e.getMessage());
-            telegramService.sendMessage(send);
-        }
-    }
-
-    private void showGymsForSelection(Long chatId) {
-        List<Gym> gyms = gymRepository.findAll();
-        StringBuilder sb = new StringBuilder();
-        sb.append("🏋️ Gym tanlang:\n\n");
-
-        if (gyms.isEmpty()) {
-            sb.append("Gym'lar mavjud emas. /skip yozing davom etish uchun.");
-        } else {
-            for (int i = 0; i < gyms.size(); i++) {
-                Gym gym = gyms.get(i);
-                sb.append((i + 1)).append(". ").append(gym.getName());
-                sb.append(" - ").append(gym.getLocation()).append("\n");
-            }
-            sb.append("\nGym raqamini kiriting yoki /skip yozing:");
-        }
-
-        SendMessage send = new SendMessage(chatId.toString(), sb.toString());
-        telegramService.sendMessage(send);
-    }
-
-    private void handleAddUserGym(User admin, String messageText, Long chatId) {
-        try {
-            UUID userId = UUID.fromString(admin.getTempData());
-            User newUser = userRepository.findById(userId).orElse(null);
-            if (newUser == null) {
-                SendMessage send = new SendMessage(chatId.toString(), "❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.");
-                telegramService.sendMessage(send);
-                return;
-            }
-            if (!messageText.equals("/skip")) {
-                try {
-                    int gymIndex = Integer.parseInt(messageText) - 1;
-                    List<Gym> gyms = gymRepository.findAll();
-                    if (gymIndex >= 0 && gymIndex < gyms.size()) {
-                        Gym selectedGym = gyms.get(gymIndex);
-                        newUser.addGym(selectedGym);
-                        userRepository.save(newUser);
-                    } else {
-                        SendMessage send = new SendMessage(chatId.toString(), "❌ Noto'g'ri raqam. Qaytadan urinib ko'ring:");
-                        telegramService.sendMessage(send);
-                        return;
-                    }
-                } catch (NumberFormatException e) {
-                    SendMessage send = new SendMessage(chatId.toString(), "❌ Noto'g'ri raqam. Qaytadan urinib ko'ring:");
-                    telegramService.sendMessage(send);
-                    return;
-                }
-            }
-            admin.setTempData(null);
-            admin.setStep(BotStep.NONE);
-            userRepository.save(admin);
-            StringBuilder sb = new StringBuilder();
-            sb.append("✅ Foydalanuvchi muvaffaqiyatli qo'shildi!\n");
-            sb.append("👤 Ism: ").append(newUser.getName()).append("\n");
-            sb.append("📱 Telefon: ").append(newUser.getPhone()).append("\n");
-            sb.append("🔐 Parol: ").append(newUser.getPhone()).append("\n");
-            if (!newUser.getTariffs().isEmpty()) {
-                Tariff t = newUser.getTariffs().get(0);
-                sb.append("📊 Ta'rif: ").append(t.getName()).append("\n");
-                sb.append("💰 Narx: ").append(t.getPrice()).append(" so'm\n");
-                sb.append("⏰ Muddat: ").append(t.getDuration()).append(" kun\n");
-                if (t.getDescription() != null) {
-                    sb.append("📝 Tavsif: ").append(t.getDescription()).append("\n");
-                }
-            }
-            if (!newUser.getGyms().isEmpty()) {
-                sb.append("🏋️ Gym: ").append(newUser.getGyms().get(0).getName()).append("\n");
-            }
-            SendMessage send = new SendMessage(chatId.toString(), sb.toString());
-            send.setReplyMarkup(adminKeyboard());
-            telegramService.sendMessage(send);
-        } catch (Exception e) {
-            SendMessage send = new SendMessage(chatId.toString(), "❌ Xatolik yuz berdi: " + e.getMessage());
-            telegramService.sendMessage(send);
-        }
     }
 
     private void showReportOptions(User admin, Long chatId) {
@@ -468,59 +516,62 @@ public class TelegramBot {
         admin.setStep(BotStep.NONE);
         userRepository.save(admin);
 
-        StringBuilder sb = new StringBuilder();
+        String roleName = admin.getRoles() != null && !admin.getRoles().isEmpty() ? admin.getRoles().get(0).getName() : "";
+        if (roleName.equals("ROLE_SUPERADMIN")) {
+            SendMessage send = new SendMessage(chatId.toString(), "🦸 SuperAdmin muvaffaqiyatli ro'yxatdan o'tdi.");
+            telegramService.sendMessage(send);
+            return;
+        }
 
+        StringBuilder sb = new StringBuilder();
         switch (messageText) {
             case "1":
-                sb.append("👥 Barcha foydalanuvchilar hisoboti:\n\n");
-                List<User> allUsers = userRepository.findAll();
-                sb.append("Jami foydalanuvchilar: ").append(allUsers.size()).append("\n\n");
-
-                for (User user : allUsers) {
-                    sb.append("📱 ").append(user.getPhone() != null ? user.getPhone() : "N/A").append("\n");
-                    if (user.getRoles() != null && !user.getRoles().isEmpty()) {
-                        sb.append("👤 Role: ").append(user.getRoles().get(0).getName()).append("\n");
+                List<Gym> adminGyms = userRepository.findAdminGymsWithMembers(admin.getId());
+                if (adminGyms.isEmpty()) {
+                    sb.append("Sizga biriktirilgan gym yo'q.");
+                } else {
+                    for (Gym gym : adminGyms) {
+                        List<User> gymUsers = new ArrayList<>();
+                        for (User user : gym.getMembers()) {
+                            if (user.getRoles() == null || user.getRoles().isEmpty()) continue;
+                            String role = user.getRoles().get(0).getName();
+                            if (!role.equals("ROLE_ADMIN") && !role.equals("ROLE_SUPERADMIN")) {
+                                gymUsers.add(user);
+                            }
+                        }
+                        sb.append("🏋️ ").append(gym.getName()).append(" (Jami: ").append(gymUsers.size()).append(")\n");
+                        if (gymUsers.isEmpty()) {
+                            sb.append("Bu gymda foydalanuvchilar yo'q.\n");
+                        } else {
+                            for (User user : gymUsers) {
+                                sb.append(user.getName()).append(" | ").append(user.getPhone()).append("\n");
+                            }
+                        }
+                        sb.append("─────────────────\n");
                     }
-                    if (!user.getTariffs().isEmpty()) {
-                        sb.append("📊 Ta'rif: ").append(user.getTariffs().get(0).getName()).append("\n");
-                    }
-                    if (!user.getGyms().isEmpty()) {
-                        sb.append("🏋️ Gym: ").append(user.getGyms().get(0).getName()).append("\n");
-                    }
-                    sb.append("─────────────────\n");
                 }
                 break;
-
             case "2":
                 sb.append("👑 Admin foydalanuvchilar:\n\n");
                 List<User> admins = userRepository.findByRoleName("ROLE_ADMIN");
-                List<User> superAdmins = userRepository.findByRoleName("ROLE_SUPERADMIN");
-
-                sb.append("Admin'lar: ").append(admins.size()).append("\n");
-                sb.append("Super Admin'lar: ").append(superAdmins.size()).append("\n\n");
-
+                sb.append("Admin'lar: ").append(admins.size()).append("\n\n");
                 admins.forEach(admin1 -> sb.append("👤 ").append(admin1.getPhone()).append(" (ADMIN)\n"));
-                superAdmins.forEach(superAdmin -> sb.append("👤 ").append(superAdmin.getPhone()).append(" (SUPERADMIN)\n"));
                 break;
-
             case "3":
                 sb.append("📊 Ta'riflar hisoboti:\n\n");
                 List<Tariff> tariffs = tariffRepository.findAll();
-                sb.append("Jami ta'riflar: ").append(tariffs.size()).append("\n\n");
-
                 for (Tariff tariff : tariffs) {
                     sb.append("🏷️ ").append(tariff.getName()).append("\n");
                     sb.append("💰 ").append(tariff.getPrice()).append(" so'm\n");
-                    sb.append("👥 Foydalanuvchilar: ").append(tariff.getUsers().size()).append("\n");
+                    int userCount = (tariff.getUsers() == null) ? 0 : tariff.getUsers().size();
+                    sb.append("👥 Foydalanuvchilar: ").append(userCount).append("\n");
                     sb.append("─────────────────\n");
                 }
                 break;
-
             case "4":
                 sb.append("🏋️ Gym'lar hisoboti:\n\n");
                 List<Gym> gyms = gymRepository.findAllWithTariffs();
                 sb.append("Jami gym'lar: ").append(gyms.size()).append("\n\n");
-
                 for (int i = 0; i < gyms.size(); i++) {
                     Gym gym = gyms.get(i);
                     sb.append((i + 1)).append(". 🏋️ ").append(gym.getName()).append("\n");
@@ -532,13 +583,11 @@ public class TelegramBot {
                     sb.append("─────────────────\n");
                 }
                 break;
-
             default:
                 sb.append("❌ Noto'g'ri tanlov. Qaytadan urinib ko'ring.");
                 showReportOptions(admin, chatId);
                 return;
         }
-
         SendMessage send = new SendMessage(chatId.toString(), sb.toString());
         telegramService.sendMessage(send);
     }
@@ -621,22 +670,17 @@ public class TelegramBot {
             String name = tempData[0];
             double price = Double.parseDouble(tempData[1]);
             int duration = Integer.parseInt(tempData[2]);
-
             Tariff newTariff = new Tariff();
             newTariff.setName(name);
             newTariff.setPrice(price);
             newTariff.setDuration(duration);
-
             if (!description.equals("/skip") && !description.isBlank()) {
                 newTariff.setDescription(description);
             }
-
             tariffRepository.save(newTariff);
-
             admin.setTempData(null);
             admin.setStep(BotStep.NONE);
             userRepository.save(admin);
-
             StringBuilder sb = new StringBuilder();
             sb.append("✅ Ta'rif muvaffaqiyatli qo'shildi!\n\n");
             sb.append("🏷️ Nomi: ").append(name).append("\n");
@@ -645,14 +689,79 @@ public class TelegramBot {
             if (newTariff.getDescription() != null) {
                 sb.append("📝 Tavsif: ").append(newTariff.getDescription()).append("\n");
             }
-
             SendMessage send = new SendMessage(chatId.toString(), sb.toString());
+            send.setReplyMarkup(adminKeyboard());
             telegramService.sendMessage(send);
-
         } catch (Exception e) {
-            SendMessage send = new SendMessage(chatId.toString(),
-                    "❌ Xatolik yuz berdi: " + e.getMessage());
+            SendMessage send = new SendMessage(chatId.toString(), "❌ Xatolik yuz berdi: " + e.getMessage());
             telegramService.sendMessage(send);
+        }
+    }
+
+    private void handleAddUserTariff(User admin, String messageText, Long chatId) {
+        List<Tariff> tariffs = tariffRepository.findAll();
+        try {
+            int tariffIndex = Integer.parseInt(messageText) - 1;
+            if (tariffIndex < 0 || tariffIndex >= tariffs.size()) {
+                SendMessage send = new SendMessage(chatId.toString(), "Noto'g'ri ta'rif tanlandi. Qaytadan urinib ko'ring.");
+                telegramService.sendMessage(send);
+                return;
+            }
+            Tariff selectedTariff = tariffs.get(tariffIndex);
+            String userIdStr = admin.getTempData();
+            if (userIdStr == null) {
+                SendMessage send = new SendMessage(chatId.toString(), "Foydalanuvchi topilmadi. Qaytadan urinib ko'ring.");
+                telegramService.sendMessage(send);
+                return;
+            }
+            User userToAdd = userRepository.findById(UUID.fromString(userIdStr)).orElse(null);
+            if (userToAdd == null) {
+                SendMessage send = new SendMessage(chatId.toString(), "Foydalanuvchi topilmadi. Qaytadan urinib ko'ring.");
+                telegramService.sendMessage(send);
+                return;
+            }
+            if (userToAdd.getTariffs() == null) userToAdd.setTariffs(new ArrayList<>());
+            if (userToAdd.getGyms() == null) userToAdd.setGyms(new ArrayList<>());
+            userToAdd.getTariffs().add(selectedTariff);
+            List<Gym> adminGyms = admin.getGyms();
+            if (adminGyms != null && !adminGyms.isEmpty()) {
+                userToAdd.getGyms().add(adminGyms.get(0));
+            }
+            userToAdd.setStep(BotStep.NONE);
+            userRepository.save(userToAdd);
+            try {
+                subscriptionService.subscribeUserToTariff(userToAdd, selectedTariff, selectedTariff.getPrice().intValue(), selectedTariff.getDuration());
+            } catch (Exception e) {
+                System.err.println("❌ Error creating subscription: " + e.getMessage());
+            }
+            StringBuilder successMessage = new StringBuilder();
+            successMessage.append("✅ Foydalanuvchi muvaffaqiyatli qo'shildi!\n\n");
+            successMessage.append("👤 Ism: ").append(userToAdd.getName()).append("\n");
+            successMessage.append("📱 Telefon: ").append(userToAdd.getPhone()).append("\n");
+            successMessage.append("📊 Ta'rif: ").append(selectedTariff.getName()).append("\n");
+            if (adminGyms != null && !adminGyms.isEmpty()) {
+                successMessage.append("🏋️ Gym: ").append(adminGyms.get(0).getName()).append("\n");
+            }
+            admin.setTempData(null);
+            userRepository.save(admin);
+            SendMessage send = new SendMessage(chatId.toString(), successMessage.toString());
+            send.setReplyMarkup(adminKeyboard());
+            telegramService.sendMessage(send);
+        } catch (IllegalArgumentException e) {
+            SendMessage send = new SendMessage(chatId.toString(), "Noto'g'ri ta'rif tanlandi yoki foydalanuvchi topilmadi. Qaytadan urinib ko'ring.");
+            telegramService.sendMessage(send);
+        }
+    }
+
+    @Transactional
+    protected void cleanupDuplicateUsers(Long chatId) {
+        try {
+            userRepository.clearSubscriptionForDuplicateUsers(chatId);
+            userRepository.deleteSubscriptionsForDuplicateUsers(chatId);
+            userRepository.deleteAllSubscriptionsForDuplicateUsers();
+            userRepository.deleteDuplicateTelegramChatIdUsers();
+        } catch (Exception e) {
+            System.err.println("❌ Error cleaning up duplicate users for chat ID " + chatId + ": " + e.getMessage());
         }
     }
 }

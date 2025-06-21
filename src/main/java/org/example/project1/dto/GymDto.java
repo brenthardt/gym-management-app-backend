@@ -2,7 +2,6 @@ package org.example.project1.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
-
 import java.util.List;
 import java.util.UUID;
 

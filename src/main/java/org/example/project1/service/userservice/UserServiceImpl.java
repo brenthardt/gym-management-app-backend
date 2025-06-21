@@ -2,16 +2,20 @@ package org.example.project1.service.userservice;
 
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
-import org.example.project1.dto.*;
+import org.example.project1.dto.LoginDto;
+import org.example.project1.dto.LoginResponse;
+import org.example.project1.dto.UserDto;
+import org.example.project1.dto.GymDto;
+import org.example.project1.dto.TariffDto;
+import org.example.project1.entity.Role;
+import org.example.project1.entity.User;
 import org.example.project1.entity.Gym;
 import org.example.project1.entity.Tariff;
-import org.example.project1.entity.User;
-import org.example.project1.repository.GymRepository;
-import org.example.project1.repository.TariffRepository;
-import org.example.project1.service.jwt.impl.JwtService;
 import org.example.project1.repository.RoleRepository;
 import org.example.project1.repository.UserRepository;
-import org.example.project1.entity.Role;
+import org.example.project1.repository.GymRepository;
+import org.example.project1.repository.TariffRepository;
+import org.example.project1.service.jwt.impl.JwtServiceImpl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,14 +31,28 @@ import java.util.UUID;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
-    private final TariffRepository tariffRepository;
-    private final GymRepository gymRepository;
     private final RoleRepository roleRepository;
+    private final GymRepository gymRepository;
+    private final TariffRepository tariffRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
+    private final JwtServiceImpl jwtService;
 
     @Override
     public User save(User user) {
+        if (user.getPhone() != null) {
+            List<User> existingUsers = userRepository.findAllByPhone(user.getPhone());
+            if (!existingUsers.isEmpty() && (user.getId() == null || !existingUsers.stream().anyMatch(u -> u.getId().equals(user.getId())))) {
+                if (existingUsers.size() > 1) {
+                    System.out.println("Found duplicate phones for: " + user.getPhone() + ". Cleaning up...");
+                    userRepository.deleteDuplicateUsers();
+                }
+                existingUsers = userRepository.findAllByPhone(user.getPhone());
+                if (!existingUsers.isEmpty() && (user.getId() == null || !existingUsers.stream().anyMatch(u -> u.getId().equals(user.getId())))) {
+                    throw new RuntimeException("Phone number already exists: " + user.getPhone());
+                }
+            }
+        }
+        
         if (user.getId() != null) {
             return userRepository.findById(user.getId())
                     .map(existingUser -> {
@@ -57,7 +76,6 @@ public class UserServiceImpl implements UserService {
                     .orElseThrow(() -> new RuntimeException("User not found for update"));
         }
 
-        // For new users
         if (user.getRoles() == null || user.getRoles().isEmpty()) {
             Role userRole = roleRepository.findByName("ROLE_USER")
                     .orElseThrow(() -> new RuntimeException("ROLE_USER not found"));
@@ -207,7 +225,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseEntity<?> signUp(UserDto userDto) {
-        if (userRepository.existsByPhone(userDto.getPhone())) {
+        if (userRepository.findFirstByPhone(userDto.getPhone()).isPresent()) {
             return ResponseEntity.badRequest().body("User already exists with this phone");
         }
 
@@ -215,8 +233,6 @@ public class UserServiceImpl implements UserService {
         user.setName(userDto.getName());
         user.setPhone(userDto.getPhone());
         user.setPassword(passwordEncoder.encode(userDto.getPassword()));
-
-
 
         Role userRole = roleRepository.findByName("ROLE_USER")
                 .orElseThrow(() -> new RuntimeException("ROLE_USER not found"));
@@ -244,7 +260,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ResponseEntity<?> login(LoginDto loginDTO) {
-        return userRepository.findByPhone(loginDTO.getPhone())
+        return userRepository.findFirstByPhone(loginDTO.getPhone())
                 .map(user -> {
                     if (passwordEncoder.matches(loginDTO.getPassword(), user.getPassword())) {
 

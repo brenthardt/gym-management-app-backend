@@ -3,7 +3,7 @@ package org.example.project1.service.gymservice;
 import lombok.RequiredArgsConstructor;
 import org.example.project1.dto.GymDto;
 import org.example.project1.dto.TariffDto;
-import org.example.project1.dto.UserDto;
+import org.example.project1.dto.UserDto;   
 import org.example.project1.entity.Gym;
 import org.example.project1.entity.Tariff;
 import org.example.project1.entity.User;
@@ -13,7 +13,6 @@ import org.example.project1.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -109,7 +108,6 @@ public class GymServiceImpl implements GymService {
                     if (gym.getTariffs() != null) {
                         if (existingGym.getTariffs() != null) {
                             for (Tariff tariff : existingGym.getTariffs()) {
-//                                tariff.setGym(null);
                             }
                             tariffRepository.saveAll(existingGym.getTariffs());
                             existingGym.getTariffs().clear();

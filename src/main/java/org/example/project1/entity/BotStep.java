@@ -7,7 +7,6 @@ public enum BotStep {
     ADMIN_MENU,
     ADD_USER_NAME,
     ADD_USER_PHONE,
-    ADD_USER_GYM,
     ADD_USER_PASSWORD,
     ADD_USER_SELECT_TARIFF,
     ADD_TARIFF_NAME,

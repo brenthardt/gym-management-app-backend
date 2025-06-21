@@ -10,6 +10,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.*;
+import java.time.LocalDate;
 
 @Entity
 @Data
@@ -24,6 +25,7 @@ public class User implements UserDetails {
     private UUID id;
     private String name;
     private String password;
+    @Column(unique = true)
     private String phone;
     @ManyToMany(fetch = FetchType.EAGER)
     private List<Role> roles;
@@ -60,6 +62,9 @@ public class User implements UserDetails {
     private BotStep step;
 
     private String tempData;
+    
+    @Column(name = "bot_blocked")
+    private Boolean botBlocked = false;
 
     public void addGym(Gym gym) {
         this.gyms.add(gym);
