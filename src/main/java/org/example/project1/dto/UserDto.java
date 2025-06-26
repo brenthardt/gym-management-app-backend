@@ -15,8 +15,9 @@ public class UserDto {
     private String password;
     private String phone;
     private List<GymDto> gyms;
-    private List<TariffDto> tariffs;
+    private List<SubscriptionTypeDto> subscriptionTypes;
     private SubscriptionDto subscription;
     private Integer duration;
     private Date purchaseDate;
 }
+

@@ -1,6 +1,5 @@
 package org.example.project1.service.gymservice;
 import org.example.project1.entity.Gym;
-import org.example.project1.entity.Tariff;
 import org.example.project1.entity.User;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -11,7 +10,6 @@ public interface GymService {
     ResponseEntity<?> findAll();
     Gym addUserToGym(UUID gymId, User user);
     Gym save(Gym gym);
-    Gym saveGymWithUserAndTariff(Gym gym, User user, Tariff tariff);
     ResponseEntity<?> delete(UUID id);
     ResponseEntity<?> update(UUID id, Gym gym);
 }

@@ -45,16 +45,16 @@ public class User implements UserDetails {
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
-            name = "user_tariff",
+            name = "user_subscription_type",
             joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "tariff_id")
+            inverseJoinColumns = @JoinColumn(name = "subscription_type_id")
     )
     @JsonIgnoreProperties("users")
-    private List<Tariff> tariffs = new ArrayList<>();
+    private List<SubscriptionType> subscriptionTypes = new ArrayList<>();
 
-    @ManyToOne
-    @JoinColumn(name = "subscription_id")
-    private Subscription subscription;
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnoreProperties("user")
+    private List<Subscription> subscriptions = new ArrayList<>();
 
     private Date purchaseDate;
 
@@ -66,14 +66,16 @@ public class User implements UserDetails {
     @Column(name = "bot_blocked")
     private Boolean botBlocked = false;
 
+    private LocalDate lastDayCountIncrement;
+
     public void addGym(Gym gym) {
         this.gyms.add(gym);
         gym.getMembers().add(this);
     }
 
-    public void addTariff(Tariff tariff) {
-        this.tariffs.add(tariff);
-        tariff.getUsers().add(this);
+    public void addSubscriptionType(SubscriptionType subscriptionType) {
+        this.subscriptionTypes.add(subscriptionType);
+        subscriptionType.getUsers().add(this);
     }
 
     @Override

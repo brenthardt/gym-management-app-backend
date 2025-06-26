@@ -12,6 +12,6 @@ public class SubscriptionDto {
     private boolean status;
     private Integer duration;
     private UserDto user;
-    private TariffDto tariff;
+    private SubscriptionTypeDto subscriptionType;
     private String name;
 }

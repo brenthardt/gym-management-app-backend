@@ -11,6 +11,6 @@ public class GymDto {
     private UUID id;
     private String name;
     private String location;
-    private List<TariffDto> tariff;
+    private List<SubscriptionTypeDto> subscriptionTypes;
     private List<UserDto> members;
 }

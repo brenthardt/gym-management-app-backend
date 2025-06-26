@@ -6,15 +6,12 @@ import org.example.project1.dto.LoginDto;
 import org.example.project1.dto.LoginResponse;
 import org.example.project1.dto.UserDto;
 import org.example.project1.dto.GymDto;
-import org.example.project1.dto.TariffDto;
 import org.example.project1.entity.Role;
 import org.example.project1.entity.User;
 import org.example.project1.entity.Gym;
-import org.example.project1.entity.Tariff;
 import org.example.project1.repository.RoleRepository;
 import org.example.project1.repository.UserRepository;
 import org.example.project1.repository.GymRepository;
-import org.example.project1.repository.TariffRepository;
 import org.example.project1.service.jwt.impl.JwtServiceImpl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,7 +30,6 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final GymRepository gymRepository;
-    private final TariffRepository tariffRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtServiceImpl jwtService;
 
@@ -121,40 +117,7 @@ public class UserServiceImpl implements UserService {
                     .toList());
         }
 
-        if (user.getTariffs() != null) {
-            dto.setTariffs(user.getTariffs().stream()
-                    .map(tariff -> {
-                        TariffDto tariffDto = new TariffDto();
-                        tariffDto.setId(tariff.getId());
-                        tariffDto.setName(tariff.getName());
-                        tariffDto.setPrice(tariff.getPrice());
-                        tariffDto.setDuration(tariff.getDuration());
-                        return tariffDto;
-                    })
-                    .toList());
-        }
-
         return dto;
-    }
-
-    @Override
-    @Transactional
-    public User saveUserWithTariffAndGym(User user, UUID tariffId, UUID gymId) {
-        Tariff tariff = tariffRepository.findById(tariffId)
-                .orElseThrow(() -> new RuntimeException("Tariff not found"));
-        Gym gym = gymRepository.findById(gymId)
-                .orElseThrow(() -> new RuntimeException("Gym not found"));
-
-        user.getGyms().add(gym);
-        user.getTariffs().add(tariff);
-        gym.getMembers().add(user);
-        tariff.getUsers().add(user);
-
-        User savedUser = userRepository.save(user);
-        gymRepository.save(gym);
-        tariffRepository.save(tariff);
-
-        return savedUser;
     }
 
     @Override
@@ -171,11 +134,6 @@ public class UserServiceImpl implements UserService {
                     if (user.getGyms() != null) {
                         existingUser.getGyms().clear();
                         existingUser.getGyms().addAll(user.getGyms());
-                    }
-
-                    if (user.getTariffs() != null) {
-                        existingUser.getTariffs().clear();
-                        existingUser.getTariffs().addAll(user.getTariffs());
                     }
 
                     if (user.getRoles() != null) {
@@ -198,20 +156,6 @@ public class UserServiceImpl implements UserService {
 
         userRepository.save(user);
         gymRepository.save(gym);
-    }
-
-    @Transactional
-    public void addTariffToUser(UUID userId, UUID tariffId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        Tariff tariff = tariffRepository.findById(tariffId)
-                .orElseThrow(() -> new RuntimeException("Tariff not found"));
-
-        user.getTariffs().add(tariff);
-        tariff.getUsers().add(user);
-
-        userRepository.save(user);
-        tariffRepository.save(tariff);
     }
 
     @Override
@@ -263,16 +207,6 @@ public class UserServiceImpl implements UserService {
         return userRepository.findFirstByPhone(loginDTO.getPhone())
                 .map(user -> {
                     if (passwordEncoder.matches(loginDTO.getPassword(), user.getPassword())) {
-
-                        if (user.getTariffs() != null) {
-                            for (Tariff tariff : user.getTariffs()) {
-                                Integer duration = tariff.getDuration();
-                                if (duration != null && duration > 0) {
-                                    tariff.setDuration(duration - 1);
-                                    tariffRepository.save(tariff);
-                                }
-                            }
-                        }
 
                         String mainRole = user.getRoles().stream()
                                 .findFirst()

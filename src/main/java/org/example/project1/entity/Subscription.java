@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -21,13 +20,14 @@ public class Subscription {
     private UUID id;
     private LocalDate startDate;
     private LocalDate endDate;
-    private Integer price;
-    private boolean status;
     private Integer duration;
+    private boolean status;
+    private boolean limited;
+    private Double price;
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
     @ManyToOne
-    @JoinColumn(name = "tariff_id")
-    private Tariff tariff;
+    @JoinColumn(name = "subscription_type_id")
+    private SubscriptionType subscriptionType;
 }

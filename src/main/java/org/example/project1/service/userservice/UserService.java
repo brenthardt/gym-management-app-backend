@@ -13,7 +13,7 @@ import java.util.UUID;
 public interface UserService {
     ResponseEntity<?> findAll();
     User save(User user);
-    User saveUserWithTariffAndGym(User user, UUID tariffId, UUID gymId);
+    // User saveUserWithTariffAndGym(User user, UUID tariffId, UUID gymId);
     ResponseEntity<?> delete(UUID id);
     ResponseEntity<?> update(UUID id, User user);
     ResponseEntity<?> signUp(UserDto userDto);

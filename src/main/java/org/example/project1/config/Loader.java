@@ -8,6 +8,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.example.project1.repository.SubscriptionRepository;
 import org.example.project1.service.subscriptionservice.SubscriptionService;
+import org.example.project1.repository.SubscriptionTypeRepository;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -18,10 +19,10 @@ public class Loader implements CommandLineRunner {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final GymRepository gymRepository;
-    private final TariffRepository tariffRepository;
     private final PasswordEncoder passwordEncoder;
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionService subscriptionService;
+    private final SubscriptionTypeRepository subscriptionTypeRepository;
 
     @Override
     public void run(String... args) {
@@ -29,10 +30,9 @@ public class Loader implements CommandLineRunner {
         cleanupDuplicateTelegramChatIds();
         initRoles();
         initGyms();
-        initTariffs();
         initAdminUsers();
         initRegularUsers();
-        assignGymsAndTariffsToUsers();
+        assignGymsAndSubscriptionTypesToUsers();
     }
 
     private void cleanupDuplicatePhones() {
@@ -154,26 +154,9 @@ public class Loader implements CommandLineRunner {
         }
     }
 
-    private void initTariffs() {
-        List<Tariff> tariffs = List.of(
-            Tariff.builder().name("Basic Plan").price(150000.0).duration(30).description("Asosiy mashg'ulotlar").users(new ArrayList<>()).build(),
-            Tariff.builder().name("Premium Plan").price(250000.0).duration(30).description("Barcha mashg'ulotlar + trener").users(new ArrayList<>()).build(),
-            Tariff.builder().name("VIP Plan").price(400000.0).duration(30).description("Individual trener + spa").users(new ArrayList<>()).build(),
-            Tariff.builder().name("Student Plan").price(100000.0).duration(30).description("Talabalar uchun chegirma").users(new ArrayList<>()).build(),
-            Tariff.builder().name("Family Plan").price(500000.0).duration(30).description("Oila uchun (4 kishi)").users(new ArrayList<>()).build(),
-            Tariff.builder().name("Annual Basic").price(1500000.0).duration(365).description("Yillik basic plan").users(new ArrayList<>()).build(),
-            Tariff.builder().name("Annual Premium").price(2500000.0).duration(365).description("Yillik premium plan").users(new ArrayList<>()).build()
-        );
-        for (Tariff tariff : tariffs) {
-            if (tariffRepository.findByName(tariff.getName()).isEmpty()) {
-                tariffRepository.save(tariff);
-            }
-        }
-    }
-
     private void initAdminUsers() {
-        final String superAdminPhone = "+998883054343";
-        final String adminPhone = "+998907110709";
+        final String superAdminPhone = "+998883054343"; // Mirshod Hojiyev
+        final String adminPhone = "+998907110709"; // Shaxzod
         Role superAdminRole = roleRepository.findByName("ROLE_SUPERADMIN").orElse(null);
         Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElse(null);
         List<Gym> gyms = gymRepository.findAll();
@@ -186,7 +169,7 @@ public class Loader implements CommandLineRunner {
             superAdmin.setRoles(List.of(superAdminRole));
             superAdmin.setPurchaseDate(new Date());
             superAdmin.setGyms(new ArrayList<>());
-            superAdmin.setTariffs(new ArrayList<>());
+            superAdmin.setSubscriptionTypes(new ArrayList<>());
             userRepository.save(superAdmin);
         }
 
@@ -202,7 +185,7 @@ public class Loader implements CommandLineRunner {
             } else {
                 admin.setGyms(new ArrayList<>());
             }
-            admin.setTariffs(new ArrayList<>());
+            admin.setSubscriptionTypes(new ArrayList<>());
             userRepository.save(admin);
         }
     }
@@ -210,15 +193,16 @@ public class Loader implements CommandLineRunner {
     private void initRegularUsers() {
         Role userRole = roleRepository.findByName("ROLE_USER")
             .orElseGet(() -> roleRepository.save(Role.builder().name("ROLE_USER").build()));
+        Random random = new Random();
         List<User> users = List.of(
-            User.builder().name("Alisher").phone("+998901111111").password(passwordEncoder.encode("alisher123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
-            User.builder().name("Malika Tosheva").phone("+998902222222").password(passwordEncoder.encode("malika123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
-            User.builder().name("Bobur Rahimov").phone("+998903333333").password(passwordEncoder.encode("bobur123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
-            User.builder().name("Nilufar Saidova").phone("+998904444444").password(passwordEncoder.encode("nilufar123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
-            User.builder().name("Jasur Abdullayev").phone("+998905555555").password(passwordEncoder.encode("jasur123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
-            User.builder().name("Sevara Nazarova").phone("+998906666666").password(passwordEncoder.encode("sevara123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
-            User.builder().name("Otabek Yusupov").phone("+998907777777").password(passwordEncoder.encode("otabek123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build(),
-            User.builder().name("Madina Qodirova").phone("+998908888888").password(passwordEncoder.encode("madina123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).tariffs(new ArrayList<>()).build()
+            User.builder().name("Alisher").phone("+998901111111").password(passwordEncoder.encode("alisher123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Malika Tosheva").phone("+998902222222").password(passwordEncoder.encode("malika123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Bobur Rahimov").phone("+998903333333").password(passwordEncoder.encode("bobur123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Nilufar Saidova").phone("+998904444444").password(passwordEncoder.encode("nilufar123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Jasur Abdullayev").phone("+998905555555").password(passwordEncoder.encode("jasur123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Sevara Nazarova").phone("+998906666666").password(passwordEncoder.encode("sevara123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Otabek Yusupov").phone("+998907777777").password(passwordEncoder.encode("otabek123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Madina Qodirova").phone("+998908888888").password(passwordEncoder.encode("madina123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build()
         );
         for (User user : users) {
             if (userRepository.findByPhone(user.getPhone()).isEmpty()) {
@@ -227,25 +211,32 @@ public class Loader implements CommandLineRunner {
         }
     }
 
-    private void assignGymsAndTariffsToUsers() {
+    private void assignGymsAndSubscriptionTypesToUsers() {
         List<Gym> gyms = gymRepository.findAll();
-        List<Tariff> tariffs = tariffRepository.findAll();
         List<User> users = userRepository.findAll();
-        if (gyms.isEmpty() || users.isEmpty() || tariffs.isEmpty()) return;
+        if (gyms.isEmpty() || users.isEmpty()) return;
+
+        Random random = new Random();
         int gymCount = gyms.size();
-        int tariffCount = tariffs.size();
         int idx = 0;
+
         for (User user : users) {
             boolean isAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> r.getName().equals("ROLE_ADMIN") || r.getName().equals("ROLE_SUPERADMIN"));
             if (isAdmin) continue;
+
             if (user.getGyms() == null || user.getGyms().isEmpty()) {
-                Gym gym = gyms.get(idx % gymCount);
-                user.setGyms(List.of(gym));
+                Gym assignedGym = gyms.get(idx % gymCount);
+                user.getGyms().add(assignedGym);
             }
-            if (user.getTariffs() == null || user.getTariffs().isEmpty()) {
-                Tariff tariff = tariffs.get(idx % tariffCount);
-                user.setTariffs(List.of(tariff));
-                subscriptionService.subscribeUserToTariff(user, tariff, tariff.getPrice().intValue(), tariff.getDuration());
+
+            if (user.getSubscriptionTypes() == null || user.getSubscriptionTypes().isEmpty()) {
+                Gym userGym = user.getGyms().get(0);
+                List<SubscriptionType> gymSubscriptionTypes = subscriptionTypeRepository.findByGym(userGym);
+                if (!gymSubscriptionTypes.isEmpty()) {
+                    SubscriptionType assignedSubscriptionType = gymSubscriptionTypes.get(random.nextInt(gymSubscriptionTypes.size()));
+                    user.getSubscriptionTypes().add(assignedSubscriptionType);
+                    subscriptionService.subscribeUserToSubscriptionType(user, assignedSubscriptionType, assignedSubscriptionType.getPrice().intValue(), assignedSubscriptionType.getDuration());
+                }
             }
             userRepository.save(user);
             idx++;

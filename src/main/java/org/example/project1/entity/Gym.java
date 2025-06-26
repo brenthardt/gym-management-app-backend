@@ -26,7 +26,7 @@ public class Gym {
     private String location;
 
     @OneToMany(mappedBy = "gym")
-    private List<Tariff> tariffs;
+    private List<SubscriptionType> subscriptionTypes;
 
     @ManyToMany(mappedBy = "gyms", fetch = FetchType.EAGER)
     @JsonIgnoreProperties("gyms")
