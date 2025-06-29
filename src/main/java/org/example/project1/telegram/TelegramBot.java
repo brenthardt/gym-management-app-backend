@@ -307,6 +307,44 @@ public class TelegramBot {
                         }
                     }
 
+                    if (text.contains("#id:")) {
+                        String[] parts = text.split("#id:");
+                        if (parts.length == 2) {
+                            String userIdStr = parts[1].trim();
+                            try {
+                                User userToUpdate = userRepository.findById(UUID.fromString(userIdStr)).orElse(null);
+                                if (userToUpdate == null) {
+                                    SendMessage send = new SendMessage(chatId.toString(), "❌ Foydalanuvchi topilmadi.");
+                                    telegramService.sendMessage(send);
+                                    return;
+                                }
+                                Subscription activeSub = userToUpdate.getSubscriptions().stream().filter(Subscription::isStatus).findFirst().orElse(null);
+                                if (activeSub == null) {
+                                    SendMessage send = new SendMessage(chatId.toString(), "❌ Foydalanuvchida aktiv obuna yo'q.");
+                                    telegramService.sendMessage(send);
+                                    return;
+                                }
+                                if (activeSub.getDuration() <= 0) {
+                                    SendMessage send = new SendMessage(chatId.toString(), "❌ Foydalanuvchining kunlari tugagan.");
+                                    telegramService.sendMessage(send);
+                                    return;
+                                }
+                                activeSub.setDuration(activeSub.getDuration() - 1);
+                                subscriptionRepository.save(activeSub);
+                                StringBuilder info = new StringBuilder();
+                                info.append("Ism: ").append(userToUpdate.getName()).append("\n");
+                                info.append("Phone: ").append(userToUpdate.getPhone()).append("\n");
+                                info.append("Kuni 1 kunga kamaydi. Qolgan kunlar: ").append(activeSub.getDuration());
+                                SendMessage send = new SendMessage(chatId.toString(), info.toString());
+                                telegramService.sendMessage(send);
+                            } catch (Exception e) {
+                                SendMessage send = new SendMessage(chatId.toString(), "❌ Xatolik: " + e.getMessage());
+                                telegramService.sendMessage(send);
+                            }
+                            return;
+                        }
+                    }
+
                     if (text.equals("👤 Add User") || text.equals("➕ Ta'rif qo'shish") ||
                             text.equals("📊 Ta'riflarni ko'rish") || text.equals("📈 Hisobot") || text.equals("👥 Foydalanuvchilarni ko'rish")) {
 
@@ -392,6 +430,38 @@ public class TelegramBot {
                         return;
                     }
                 }
+            }
+            // YANGI: incday_ bilan boshlanadigan message uchun duration kamaytirish
+            if (message.hasText() && message.getText().startsWith("incday_")) {
+                String userIdStr = message.getText().substring("incday_".length());
+                try {
+                    User userToUpdate = userRepository.findById(UUID.fromString(userIdStr)).orElse(null);
+                    if (userToUpdate == null) {
+                        SendMessage send = new SendMessage(chatId.toString(), "❌ Foydalanuvchi topilmadi.");
+                        telegramService.sendMessage(send);
+                        return;
+                    }
+                    // Faqat aktiv subscriptionni topamiz
+                    Subscription activeSub = userToUpdate.getSubscriptions().stream().filter(Subscription::isStatus).findFirst().orElse(null);
+                    if (activeSub == null) {
+                        SendMessage send = new SendMessage(chatId.toString(), "❌ Foydalanuvchida aktiv obuna yo'q.");
+                        telegramService.sendMessage(send);
+                        return;
+                    }
+                    if (activeSub.getDuration() <= 0) {
+                        SendMessage send = new SendMessage(chatId.toString(), "❌ Foydalanuvchining kunlari tugagan.");
+                        telegramService.sendMessage(send);
+                        return;
+                    }
+                    activeSub.setDuration(activeSub.getDuration() - 1);
+                    subscriptionRepository.save(activeSub);
+                    SendMessage send = new SendMessage(chatId.toString(), "✅ " + userToUpdate.getName() + " gymga keldi. Uning kuni 1 kunga kamaydi. Qolgan kunlar: " + activeSub.getDuration());
+                    telegramService.sendMessage(send);
+                } catch (Exception e) {
+                    SendMessage send = new SendMessage(chatId.toString(), "❌ Xatolik: " + e.getMessage());
+                    telegramService.sendMessage(send);
+                }
+                return;
             }
         } catch (Exception e) {
             System.err.println("Error in onUpdateReceived: " + e.getMessage());
@@ -494,18 +564,11 @@ public class TelegramBot {
                         send = new SendMessage(chatId.toString(), userInfo.toString());
                         send.setReplyMarkup(new org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove(true));
                     }
-                    try {
-                        telegramService.sendMessage(send);
-                    } catch (RuntimeException ex8) {
-                        throw ex8;
-                    }
+                    telegramService.sendMessage(send);
                 } else {
                     SendMessage send = new SendMessage(chatId.toString(), "❌ Noto'g'ri parol. Qaytadan urinib ko'ring:");
-                    try {
-                        telegramService.sendMessage(send);
-                    } catch (RuntimeException ex9) {
-                        throw ex9;
-                    }
+                    send.setReplyMarkup(new org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove(true));
+                    telegramService.sendMessage(send);
                 }
                 return true;
 
@@ -707,20 +770,10 @@ public class TelegramBot {
     private void showUsers(User admin, Long chatId) {
         List<Gym> adminGyms = userRepository.findGymsByMemberId(admin.getId());
         if (adminGyms.isEmpty()) {
-            try {
-                telegramService.sendMessage(new SendMessage(chatId.toString(), "Sizga biriktirilgan gym yo'q."));
-            } catch (RuntimeException ex16) {
-                throw ex16;
-            }
+            telegramService.sendMessage(new SendMessage(chatId.toString(), "Sizga biriktirilgan gym yo'q."));
             return;
         }
-
-        try {
-            telegramService.sendMessage(new SendMessage(chatId.toString(), "👥 Foydalanuvchilar ro'yxati:"));
-        } catch (RuntimeException e) {
-            throw e;
-        }
-
+        telegramService.sendMessage(new SendMessage(chatId.toString(), "👥 Foydalanuvchilar ro'yxati:"));
         for (Gym gym : adminGyms) {
             List<User> gymUsers = new ArrayList<>();
             for (User user : gym.getMembers()) {
@@ -730,51 +783,38 @@ public class TelegramBot {
                     gymUsers.add(user);
                 }
             }
-
             if (gymUsers.isEmpty()) {
-                try {
-                    telegramService.sendMessage(new SendMessage(chatId.toString(), "🏋️ " + gym.getName() + ": Bu gymda foydalanuvchilar yo'q."));
-                } catch (RuntimeException e) {
-                    throw e;
-                }
+                telegramService.sendMessage(new SendMessage(chatId.toString(), "🏋️ " + gym.getName() + ": Bu gymda foydalanuvchilar yo'q."));
                 continue;
             }
-
             for (User user : gymUsers) {
                 StringBuilder sb = new StringBuilder();
                 sb.append("👤 ").append(user.getName()).append(" | ").append(user.getPhone()).append("\n");
-
-                if (!user.getSubscriptionTypes().isEmpty()) {
-                    SubscriptionType userTariff = user.getSubscriptionTypes().get(0);
-                    sb.append("   - Subscription_type: ");
+                Subscription active = user.getSubscriptions().stream().filter(Subscription::isStatus).findFirst().orElse(null);
+                if (active != null) {
+                    SubscriptionType st = active.getSubscriptionType();
+                    sb.append("   - Obuna: ").append(st.getName()).append("\n");
+                    sb.append("   - Narx: ").append(st.getPrice()).append(" so'm\n");
+                    sb.append("   - Muddat: ").append(active.getDuration()).append(" kun\n");
+                    sb.append("   - Boshlanish: ").append(active.getStartDate()).append("\n");
+                    sb.append("   - Tugash: ").append(active.getEndDate()).append("\n");
                 } else {
-                    sb.append("   - Ta'rif: Biriktirilmagan\n");
+                    sb.append("   - Obuna: Biriktirilmagan\n");
                 }
-
                 InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
                 List<List<InlineKeyboardButton>> rows = new ArrayList<>();
-                List<InlineKeyboardButton> row = new ArrayList<>();
-
-                InlineKeyboardButton editBtn = new InlineKeyboardButton();
-                editBtn.setText("✏️ Edit");
-                editBtn.setCallbackData("edit_user_" + user.getId());
-                row.add(editBtn);
-
-                InlineKeyboardButton deleteBtn = new InlineKeyboardButton();
-                deleteBtn.setText("🗑️ Delete");
-                deleteBtn.setCallbackData("delete_user_" + user.getId());
-                row.add(deleteBtn);
-
-                rows.add(row);
+                if (active == null && !user.getSubscriptionTypes().isEmpty()) {
+                    InlineKeyboardButton btn = new InlineKeyboardButton();
+                    btn.setText("Obuna bo'lish");
+                    btn.setCallbackData("startsub_" + user.getId());
+                    List<InlineKeyboardButton> row = new ArrayList<>();
+                    row.add(btn);
+                    rows.add(row);
+                }
                 markup.setKeyboard(rows);
-
                 SendMessage send = new SendMessage(chatId.toString(), sb.toString());
                 send.setReplyMarkup(markup);
-                try {
-                    telegramService.sendMessage(send);
-                } catch (RuntimeException e) {
-                    throw e;
-                }
+                telegramService.sendMessage(send);
             }
         }
     }
@@ -1820,10 +1860,9 @@ public class TelegramBot {
     private void handleUserInlineQuery(String query, String queryId, User admin) {
         List<User> users = new ArrayList<>();
         if (admin == null) return;
-        if (query.startsWith("@+998")) {
-            users = userRepository.findByPhoneStartingWith(query.substring(1));
-        } else if (!query.isEmpty()) {
-            users = userRepository.findByNameContainingIgnoreCase(query);
+        if (!query.isEmpty()) {
+            String phoneQuery = query.replaceAll("[^0-9]", "");
+            users = userRepository.findByPhoneContaining(phoneQuery);
         }
         List<Gym> adminGyms = admin.getGyms();
         List<User> filtered = new ArrayList<>();
@@ -1832,7 +1871,8 @@ public class TelegramBot {
             if (isAdmin) continue;
             for (Gym gym : user.getGyms()) {
                 if (adminGyms.contains(gym)) {
-                    filtered.add(user);
+                    Subscription active = user.getSubscriptions().stream().filter(Subscription::isStatus).findFirst().orElse(null);
+                    if (active != null) filtered.add(user);
                     break;
                 }
             }
@@ -1844,7 +1884,11 @@ public class TelegramBot {
             article.setId("incday_" + user.getId());
             article.setTitle(title);
             InputTextMessageContent content = new InputTextMessageContent();
-            content.setMessageText(title + "\n");
+            StringBuilder sb = new StringBuilder();
+            sb.append("Ism: ").append(user.getName()).append("\n");
+            sb.append("Phone: ").append(user.getPhone()).append("\n");
+            sb.append("#id:").append(user.getId());
+            content.setMessageText(sb.toString());
             article.setInputMessageContent(content);
             results.add(article);
         }
@@ -1852,12 +1896,6 @@ public class TelegramBot {
         answer.setInlineQueryId(queryId);
         answer.setResults(results);
         answer.setCacheTime(1);
-        try {
-            telegramService.answerInlineQuery(answer);
-        } catch (RuntimeException ex150) {
-            throw ex150;
-        }
+        telegramService.answerInlineQuery(answer);
     }
 }
-
-

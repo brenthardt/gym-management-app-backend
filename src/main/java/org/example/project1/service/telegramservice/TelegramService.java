@@ -9,4 +9,4 @@ public interface TelegramService {
     void editMessageText(EditMessageText editMessageText);
     void answerInlineQuery(AnswerInlineQuery answerInlineQuery);
     void deleteMessage(String chatId, Integer messageId);
-} 
+}

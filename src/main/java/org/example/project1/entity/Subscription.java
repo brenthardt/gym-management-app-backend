@@ -24,6 +24,8 @@ public class Subscription {
     private boolean status;
     private boolean limited;
     private Double price;
+    private LocalDate lastDayUsed;
+    private LocalDate purchaseDate;
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;

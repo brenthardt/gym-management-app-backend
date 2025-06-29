@@ -50,11 +50,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query(value = "DELETE FROM users WHERE id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER(PARTITION BY phone ORDER BY id) as rn FROM users) t WHERE t.rn > 1)", nativeQuery = true)
     void deleteDuplicateUsers();
     
-    Optional<User> findByRefreshToken(String refreshToken);
-
     @Query("SELECT u.phone, COUNT(u) FROM User u GROUP BY u.phone HAVING COUNT(u) > 1")
     List<Object[]> findDuplicatePhones();
 
     List<User> findByPhoneStartingWith(String phonePrefix);
     List<User> findByNameContainingIgnoreCase(String name);
+    List<User> findByPhoneContaining(String phonePart);
 }

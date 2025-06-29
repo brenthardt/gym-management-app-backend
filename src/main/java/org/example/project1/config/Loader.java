@@ -3,6 +3,7 @@ package org.example.project1.config;
 import lombok.RequiredArgsConstructor;
 import org.example.project1.entity.*;
 import org.example.project1.repository.*;
+import org.example.project1.service.telegramservice.TelegramService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,7 @@ import org.example.project1.repository.SubscriptionTypeRepository;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.time.LocalDate;
 
 @Component
 @RequiredArgsConstructor
@@ -21,11 +23,12 @@ public class Loader implements CommandLineRunner {
     private final GymRepository gymRepository;
     private final PasswordEncoder passwordEncoder;
     private final SubscriptionRepository subscriptionRepository;
-    private final SubscriptionService subscriptionService;
     private final SubscriptionTypeRepository subscriptionTypeRepository;
+    private final TelegramService telegramService;
 
     @Override
     public void run(String... args) {
+        testBotToken();
         cleanupDuplicatePhones();
         cleanupDuplicateTelegramChatIds();
         initRoles();
@@ -33,6 +36,18 @@ public class Loader implements CommandLineRunner {
         initAdminUsers();
         initRegularUsers();
         assignGymsAndSubscriptionTypesToUsers();
+    }
+
+    private void testBotToken() {
+
+        try {
+            System.out.println("🧪 Testing bot configuration...");
+            if (telegramService instanceof org.example.project1.service.telegramservice.TelegramServiceImpl) {
+                ((org.example.project1.service.telegramservice.TelegramServiceImpl) telegramService).testBotToken();
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error testing bot token: " + e.getMessage());
+        }
     }
 
     private void cleanupDuplicatePhones() {
@@ -145,18 +160,51 @@ public class Loader implements CommandLineRunner {
             gym2.setLocation("Samarkand, Registon ko'chasi");
             gym2.setMembers(new ArrayList<>());
             gymRepository.save(gym2);
-
-            Gym gym3 = new Gym();
-            gym3.setName("BodyBuilder Gym");
-            gym3.setLocation("Tashkent, Chilonzor tumani");
-            gym3.setMembers(new ArrayList<>());
-            gymRepository.save(gym3);
+        }
+        List<Gym> gyms = gymRepository.findAll();
+        int gymIdx = 0;
+        String[][] names = {
+            {"Premium Plan", "VIP Plan"},
+            {"Gold Membership", "Silver Membership"},
+            {"Platinum", "Standard"},
+            {"Business", "Exclusive"},
+            {"Pro", "Basic"}
+        };
+        LocalDate today = LocalDate.now();
+        int daysInMonth = today.lengthOfMonth();
+        int sundays = 0;
+        for (int i = 1; i <= daysInMonth; i++) {
+            if (today.withDayOfMonth(i).getDayOfWeek().getValue() == 7) sundays++;
+        }
+        int harKunDuration = daysInMonth - sundays;
+        int kunoraDuration = 13;
+        for (Gym gym : gyms) {
+            if (subscriptionTypeRepository.findByGym(gym).isEmpty()) {
+                String[] gymNames = names[gymIdx % names.length];
+                SubscriptionType st1 = SubscriptionType.builder()
+                    .name(gymNames[0])
+                    .price(350000d)
+                    .duration(31)
+                    .type("har kun")
+                    .gym(gym)
+                    .build();
+                subscriptionTypeRepository.save(st1);
+                SubscriptionType st2 = SubscriptionType.builder()
+                    .name(gymNames[1])
+                    .price(200000d)
+                    .duration(365)
+                    .type("kunora")
+                    .gym(gym)
+                    .build();
+                subscriptionTypeRepository.save(st2);
+            }
+            gymIdx++;
         }
     }
 
     private void initAdminUsers() {
-        final String superAdminPhone = "+998883054343"; // Mirshod Hojiyev
-        final String adminPhone = "+998907110709"; // Shaxzod
+        final String superAdminPhone = "+998883054343";
+        final String adminPhone = "+998907110709";
         Role superAdminRole = roleRepository.findByName("ROLE_SUPERADMIN").orElse(null);
         Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElse(null);
         List<Gym> gyms = gymRepository.findAll();
@@ -167,7 +215,7 @@ public class Loader implements CommandLineRunner {
             superAdmin.setPhone(superAdminPhone);
             superAdmin.setPassword(passwordEncoder.encode("superadmin123"));
             superAdmin.setRoles(List.of(superAdminRole));
-            superAdmin.setPurchaseDate(new Date());
+
             superAdmin.setGyms(new ArrayList<>());
             superAdmin.setSubscriptionTypes(new ArrayList<>());
             userRepository.save(superAdmin);
@@ -179,7 +227,6 @@ public class Loader implements CommandLineRunner {
             admin.setPhone(adminPhone);
             admin.setPassword(passwordEncoder.encode("admin123"));
             admin.setRoles(List.of(adminRole));
-            admin.setPurchaseDate(new Date());
             if (!gyms.isEmpty()) {
                 admin.setGyms(List.of(gyms.get(0)));
             } else {
@@ -195,14 +242,14 @@ public class Loader implements CommandLineRunner {
             .orElseGet(() -> roleRepository.save(Role.builder().name("ROLE_USER").build()));
         Random random = new Random();
         List<User> users = List.of(
-            User.builder().name("Alisher").phone("+998901111111").password(passwordEncoder.encode("alisher123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
-            User.builder().name("Malika Tosheva").phone("+998902222222").password(passwordEncoder.encode("malika123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
-            User.builder().name("Bobur Rahimov").phone("+998903333333").password(passwordEncoder.encode("bobur123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
-            User.builder().name("Nilufar Saidova").phone("+998904444444").password(passwordEncoder.encode("nilufar123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
-            User.builder().name("Jasur Abdullayev").phone("+998905555555").password(passwordEncoder.encode("jasur123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
-            User.builder().name("Sevara Nazarova").phone("+998906666666").password(passwordEncoder.encode("sevara123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
-            User.builder().name("Otabek Yusupov").phone("+998907777777").password(passwordEncoder.encode("otabek123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
-            User.builder().name("Madina Qodirova").phone("+998908888888").password(passwordEncoder.encode("madina123")).roles(List.of(userRole)).purchaseDate(new Date()).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build()
+            User.builder().name("Baxrom").phone("+998992597375").password(passwordEncoder.encode("alisher123")).roles(List.of(userRole)).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Malika Tosheva").phone("+998902222222").password(passwordEncoder.encode("malika123")).roles(List.of(userRole)).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Bobur Rahimov").phone("+998903333333").password(passwordEncoder.encode("bobur123")).roles(List.of(userRole)).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Nilufar Saidova").phone("+998904444444").password(passwordEncoder.encode("nilufar123")).roles(List.of(userRole)).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Jasur Abdullayev").phone("+998905555555").password(passwordEncoder.encode("jasur123")).roles(List.of(userRole)).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Sevara Nazarova").phone("+998906666666").password(passwordEncoder.encode("sevara123")).roles(List.of(userRole)).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Otabek Yusupov").phone("+998907777777").password(passwordEncoder.encode("otabek123")).roles(List.of(userRole)).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build(),
+            User.builder().name("Madina Qodirova").phone("+998908888888").password(passwordEncoder.encode("madina123")).roles(List.of(userRole)).gyms(new ArrayList<>()).subscriptionTypes(new ArrayList<>()).build()
         );
         for (User user : users) {
             if (userRepository.findByPhone(user.getPhone()).isEmpty()) {
@@ -215,28 +262,47 @@ public class Loader implements CommandLineRunner {
         List<Gym> gyms = gymRepository.findAll();
         List<User> users = userRepository.findAll();
         if (gyms.isEmpty() || users.isEmpty()) return;
-
         Random random = new Random();
         int gymCount = gyms.size();
         int idx = 0;
-
+        int subscriptionCount = 0;
+        LocalDate today = LocalDate.now();
+        int daysInMonth = today.lengthOfMonth();
+        int sundays = 0;
+        for (int i = 1; i <= daysInMonth; i++) {
+            if (today.withDayOfMonth(i).getDayOfWeek().getValue() == 7) sundays++;
+        }
+        int harKunDuration = daysInMonth - sundays;
+        int kunoraDuration = 13;
         for (User user : users) {
             boolean isAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> r.getName().equals("ROLE_ADMIN") || r.getName().equals("ROLE_SUPERADMIN"));
             if (isAdmin) continue;
-
             if (user.getGyms() == null || user.getGyms().isEmpty()) {
                 Gym assignedGym = gyms.get(idx % gymCount);
-                user.getGyms().add(assignedGym);
+                user.setGyms(new ArrayList<>(List.of(assignedGym)));
             }
-
+            Gym userGym = user.getGyms().get(0);
+            List<SubscriptionType> gymSubscriptionTypes = subscriptionTypeRepository.findByGym(userGym);
             if (user.getSubscriptionTypes() == null || user.getSubscriptionTypes().isEmpty()) {
-                Gym userGym = user.getGyms().get(0);
-                List<SubscriptionType> gymSubscriptionTypes = subscriptionTypeRepository.findByGym(userGym);
-                if (!gymSubscriptionTypes.isEmpty()) {
-                    SubscriptionType assignedSubscriptionType = gymSubscriptionTypes.get(random.nextInt(gymSubscriptionTypes.size()));
-                    user.getSubscriptionTypes().add(assignedSubscriptionType);
-                    subscriptionService.subscribeUserToSubscriptionType(user, assignedSubscriptionType, assignedSubscriptionType.getPrice().intValue(), assignedSubscriptionType.getDuration());
-                }
+                SubscriptionType assignedSubscriptionType = gymSubscriptionTypes.get(random.nextInt(gymSubscriptionTypes.size()));
+                user.setSubscriptionTypes(new ArrayList<>(List.of(assignedSubscriptionType)));
+            }
+            if (subscriptionCount < 2) {
+                SubscriptionType st = user.getSubscriptionTypes().get(0);
+                int duration = st.getType().equalsIgnoreCase("har kun") ? harKunDuration : kunoraDuration;
+                Subscription sub = Subscription.builder()
+                    .user(user)
+                    .subscriptionType(st)
+                    .startDate(today)
+                    .endDate(today.plusDays(st.getDuration() - 1))
+                    .duration(duration)
+                    .status(true)
+                    .limited(st.getType() != null && st.getType().equalsIgnoreCase("kunora"))
+                    .price(st.getPrice())
+                    .purchaseDate(today)
+                    .build();
+                subscriptionRepository.save(sub);
+                subscriptionCount++;
             }
             userRepository.save(user);
             idx++;

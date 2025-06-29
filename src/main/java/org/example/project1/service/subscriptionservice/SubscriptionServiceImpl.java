@@ -26,6 +26,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         subscription.setPrice(price != null ? price.doubleValue() : null);
         subscription.setStatus(true);
         subscription.setDuration(duration);
+        subscription.setPurchaseDate(LocalDate.now());
         return subscriptionRepository.save(subscription);
     }
 

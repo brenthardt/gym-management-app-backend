@@ -26,7 +26,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
-
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final GymRepository gymRepository;
@@ -82,9 +81,7 @@ public class UserServiceImpl implements UserService {
             user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
 
-        if (user.getPurchaseDate() == null) {
-            user.setPurchaseDate(new Date());
-        }
+
 
         return userRepository.save(user);
     }
@@ -103,7 +100,6 @@ public class UserServiceImpl implements UserService {
         dto.setName(user.getName());
         dto.setPhone(user.getPhone());
         dto.setPassword(user.getPassword());
-        dto.setPurchaseDate(user.getPurchaseDate());
 
         if (user.getGyms() != null) {
             dto.setGyms(user.getGyms().stream()
@@ -187,9 +183,6 @@ public class UserServiceImpl implements UserService {
         String token = jwtService.generateToken(savedUser.getPhone(), "ROLE_USER");
         String refreshToken = jwtService.generateRefreshToken(savedUser.getPhone(), "ROLE_USER");
 
-        savedUser.setRefreshToken(refreshToken);
-        userRepository.save(savedUser);
-
         LoginResponse response = new LoginResponse(
                 savedUser.getId(),
                 savedUser.getName(),
@@ -207,18 +200,12 @@ public class UserServiceImpl implements UserService {
         return userRepository.findFirstByPhone(loginDTO.getPhone())
                 .map(user -> {
                     if (passwordEncoder.matches(loginDTO.getPassword(), user.getPassword())) {
-
                         String mainRole = user.getRoles().stream()
                                 .findFirst()
                                 .map(Role::getName)
                                 .orElse("UNKNOWN");
-
                         String token = jwtService.generateToken(user.getPhone(), mainRole);
                         String refreshToken = jwtService.generateRefreshToken(user.getPhone(), mainRole);
-
-                        user.setRefreshToken(refreshToken);
-                        userRepository.save(user);
-
                         LoginResponse response = new LoginResponse(
                                 user.getId(),
                                 user.getName(),
@@ -227,7 +214,6 @@ public class UserServiceImpl implements UserService {
                                 token,
                                 refreshToken
                         );
-
                         return ResponseEntity.ok(response);
                     } else {
                         return ResponseEntity.badRequest().body("Invalid password");
@@ -247,21 +233,9 @@ public class UserServiceImpl implements UserService {
             Claims claims = jwtService.getClaims(refreshToken);
             String phone = claims.getSubject();
             String role = claims.get("role", String.class);
-
-            User user = userRepository.findByRefreshToken(refreshToken)
-                    .orElseThrow(() -> new RuntimeException("Invalid refresh token (not found in DB)"));
-
-            if (!user.getPhone().equals(phone)) {
-                return ResponseEntity.status(401).body("Token subject mismatch");
-            }
-
+            User user = userRepository.findFirstByPhone(phone).orElseThrow(() -> new RuntimeException("User not found"));
             String newAccessToken = jwtService.generateToken(phone, role);
             String newRefreshToken = jwtService.generateRefreshToken(phone, role);
-            user.setRefreshToken(newRefreshToken);
-            userRepository.save(user);
-
-
-
             return ResponseEntity.ok(
                     new LoginResponse(
                             user.getId(),
@@ -272,7 +246,6 @@ public class UserServiceImpl implements UserService {
                             newRefreshToken
                     )
             );
-
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(403).body("Refresh token expired or invalid");

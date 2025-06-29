@@ -29,8 +29,6 @@ public class User implements UserDetails {
     private String phone;
     @ManyToMany(fetch = FetchType.EAGER)
     private List<Role> roles;
-    @Column(length = 1000)
-    private String refreshToken;
 
     private Long telegramChatId;
 
@@ -55,8 +53,6 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonIgnoreProperties("user")
     private List<Subscription> subscriptions = new ArrayList<>();
-
-    private Date purchaseDate;
 
     @Enumerated(EnumType.STRING)
     private BotStep step;
