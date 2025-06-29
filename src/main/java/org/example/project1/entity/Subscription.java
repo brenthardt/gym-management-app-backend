@@ -26,10 +26,19 @@ public class Subscription {
     private Double price;
     private LocalDate lastDayUsed;
     private LocalDate purchaseDate;
+    private LocalDate lastDecrementDate;
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
     @ManyToOne
     @JoinColumn(name = "subscription_type_id")
     private SubscriptionType subscriptionType;
+
+    public LocalDate getLastDecrementDate() {
+        return lastDecrementDate;
+    }
+
+    public void setLastDecrementDate(LocalDate lastDecrementDate) {
+        this.lastDecrementDate = lastDecrementDate;
+    }
 }

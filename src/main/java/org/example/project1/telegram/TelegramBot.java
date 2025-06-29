@@ -90,6 +90,7 @@ public class TelegramBot {
                                     .status(true)
                                     .limited(st.getType() != null && st.getType().equalsIgnoreCase("kunora"))
                                     .price(st.getPrice())
+                                    .lastDecrementDate(start)
                                     .build();
                             subscriptionRepository.save(sub);
                             StringBuilder info = new StringBuilder();
@@ -190,6 +191,7 @@ public class TelegramBot {
                     dbUser.setStep(BotStep.WAITING_FOR_PASSWORD);
                     userRepository.save(dbUser);
                     SendMessage send = new SendMessage(chatId.toString(), "Iltimos, parolingizni kiriting:");
+                    send.setReplyMarkup(new org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove(true));
                     try {
                         telegramService.sendMessage(send);
                     } catch (RuntimeException ex2) {
@@ -324,12 +326,19 @@ public class TelegramBot {
                                     telegramService.sendMessage(send);
                                     return;
                                 }
+                                LocalDate today = LocalDate.now();
+                                if (activeSub.getLastDecrementDate() != null && activeSub.getLastDecrementDate().isEqual(today)) {
+                                    SendMessage send = new SendMessage(chatId.toString(), "❌ Bugun bu foydalanuvchining kuni allaqachon kamaytirilgan.");
+                                    telegramService.sendMessage(send);
+                                    return;
+                                }
                                 if (activeSub.getDuration() <= 0) {
                                     SendMessage send = new SendMessage(chatId.toString(), "❌ Foydalanuvchining kunlari tugagan.");
                                     telegramService.sendMessage(send);
                                     return;
                                 }
                                 activeSub.setDuration(activeSub.getDuration() - 1);
+                                activeSub.setLastDecrementDate(today);
                                 subscriptionRepository.save(activeSub);
                                 StringBuilder info = new StringBuilder();
                                 info.append("Ism: ").append(userToUpdate.getName()).append("\n");
@@ -441,10 +450,15 @@ public class TelegramBot {
                         telegramService.sendMessage(send);
                         return;
                     }
-                    // Faqat aktiv subscriptionni topamiz
                     Subscription activeSub = userToUpdate.getSubscriptions().stream().filter(Subscription::isStatus).findFirst().orElse(null);
                     if (activeSub == null) {
                         SendMessage send = new SendMessage(chatId.toString(), "❌ Foydalanuvchida aktiv obuna yo'q.");
+                        telegramService.sendMessage(send);
+                        return;
+                    }
+                    LocalDate today = LocalDate.now();
+                    if (activeSub.getLastDecrementDate() != null && activeSub.getLastDecrementDate().isEqual(today)) {
+                        SendMessage send = new SendMessage(chatId.toString(), "❌ Bugun bu foydalanuvchining kuni allaqachon kamaytirilgan.");
                         telegramService.sendMessage(send);
                         return;
                     }
@@ -454,6 +468,7 @@ public class TelegramBot {
                         return;
                     }
                     activeSub.setDuration(activeSub.getDuration() - 1);
+                    activeSub.setLastDecrementDate(today);
                     subscriptionRepository.save(activeSub);
                     SendMessage send = new SendMessage(chatId.toString(), "✅ " + userToUpdate.getName() + " gymga keldi. Uning kuni 1 kunga kamaydi. Qolgan kunlar: " + activeSub.getDuration());
                     telegramService.sendMessage(send);
