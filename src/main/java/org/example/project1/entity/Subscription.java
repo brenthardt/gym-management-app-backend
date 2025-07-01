@@ -20,7 +20,7 @@ public class Subscription {
     private UUID id;
     private LocalDate startDate;
     private LocalDate endDate;
-    private Integer duration;
+    private Integer dayCount;
     private boolean status;
     private boolean limited;
     private Double price;

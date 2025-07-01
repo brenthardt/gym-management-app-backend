@@ -31,7 +31,6 @@ public class SubscriptionTypeServiceImpl implements SubscriptionTypeService {
         existing.setPrice(subscriptionType.getPrice());
         existing.setDuration(subscriptionType.getDuration());
         existing.setDescription(subscriptionType.getDescription());
-        existing.setType(subscriptionType.getType());
         existing.setGym(subscriptionType.getGym());
         return subscriptionTypeRepository.save(existing);
     }

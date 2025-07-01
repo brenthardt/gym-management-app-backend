@@ -185,7 +185,7 @@ public class Loader implements CommandLineRunner {
                     .name(gymNames[0])
                     .price(350000d)
                     .duration(31)
-                    .type("har kun")
+                    .dayCount(31)
                     .gym(gym)
                     .build();
                 subscriptionTypeRepository.save(st1);
@@ -193,7 +193,7 @@ public class Loader implements CommandLineRunner {
                     .name(gymNames[1])
                     .price(200000d)
                     .duration(365)
-                    .type("kunora")
+                    .dayCount(13)
                     .gym(gym)
                     .build();
                 subscriptionTypeRepository.save(st2);
@@ -203,19 +203,18 @@ public class Loader implements CommandLineRunner {
     }
 
     private void initAdminUsers() {
-        final String superAdminPhone = "+998883054343";
-        final String adminPhone = "+998907110709";
+        final String superAdminPhone = "+998907110709";
+        final String adminPhone = "+998883054343";
         Role superAdminRole = roleRepository.findByName("ROLE_SUPERADMIN").orElse(null);
         Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElse(null);
         List<Gym> gyms = gymRepository.findAll();
 
         if (userRepository.findByPhone(superAdminPhone).isEmpty()) {
             User superAdmin = new User();
-            superAdmin.setName("Mirshod Hojiyev");
+            superAdmin.setName("Shaxzod");
             superAdmin.setPhone(superAdminPhone);
             superAdmin.setPassword(passwordEncoder.encode("superadmin123"));
             superAdmin.setRoles(List.of(superAdminRole));
-
             superAdmin.setGyms(new ArrayList<>());
             superAdmin.setSubscriptionTypes(new ArrayList<>());
             userRepository.save(superAdmin);
@@ -223,7 +222,7 @@ public class Loader implements CommandLineRunner {
 
         if (userRepository.findByPhone(adminPhone).isEmpty()) {
             User admin = new User();
-            admin.setName("Shaxzod");
+            admin.setName("Mirshod Hojiyev");
             admin.setPhone(adminPhone);
             admin.setPassword(passwordEncoder.encode("admin123"));
             admin.setRoles(List.of(adminRole));
@@ -289,15 +288,15 @@ public class Loader implements CommandLineRunner {
             }
             if (subscriptionCount < 2) {
                 SubscriptionType st = user.getSubscriptionTypes().get(0);
-                int duration = st.getType().equalsIgnoreCase("har kun") ? harKunDuration : kunoraDuration;
+                int dayCount = st.getDayCount() != null ? st.getDayCount() : (st.getDuration() != null ? st.getDuration() : 0);
                 Subscription sub = Subscription.builder()
                     .user(user)
                     .subscriptionType(st)
                     .startDate(today)
-                    .endDate(today.plusDays(st.getDuration() - 1))
-                    .duration(duration)
+                    .endDate(today.plusDays(dayCount - 1))
+                    .dayCount(dayCount)
                     .status(true)
-                    .limited(st.getType() != null && st.getType().equalsIgnoreCase("kunora"))
+                    .limited(false)
                     .price(st.getPrice())
                     .purchaseDate(today)
                     .build();

@@ -17,15 +17,15 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final SubscriptionRepository subscriptionRepository;
 
     @Override
-    public Subscription subscribeUserToSubscriptionType(User user, SubscriptionType subscriptionType, Integer price, Integer duration) {
+    public Subscription subscribeUserToSubscriptionType(User user, SubscriptionType subscriptionType, Integer price, Integer dayCount) {
         Subscription subscription = new Subscription();
         subscription.setUser(user);
         subscription.setSubscriptionType(subscriptionType);
         subscription.setStartDate(LocalDate.now());
-        subscription.setEndDate(LocalDate.now().plusDays(duration));
+        subscription.setEndDate(LocalDate.now().plusDays(dayCount));
         subscription.setPrice(price != null ? price.doubleValue() : null);
         subscription.setStatus(true);
-        subscription.setDuration(duration);
+        subscription.setDayCount(dayCount);
         subscription.setPurchaseDate(LocalDate.now());
         return subscriptionRepository.save(subscription);
     }

@@ -24,8 +24,8 @@ public class SubscriptionType {
     private String name;
     private Double price;
     private Integer duration;
+    private Integer dayCount;
     private String description;
-    private String type;
 
     @ManyToOne
     @JoinColumn(name = "gym_id")
@@ -35,17 +35,4 @@ public class SubscriptionType {
     @ManyToMany(mappedBy = "subscriptionTypes", fetch = FetchType.EAGER)
     @JsonIgnoreProperties("subscriptionTypes")
     private List<User> users = new ArrayList<>();
-
-
-    public SubscriptionType(String type) {
-        this.type = type;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
 }
